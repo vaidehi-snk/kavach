@@ -1,0 +1,25 @@
+{
+  "name": "kavach",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "start": "node server/index.js",
+    "eval": "node eval/run.js",
+    "test": "node eval/run.js --split all"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.1150.0",
+    "@aws-sdk/client-sns": "^3.1150.0",
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "express": "^5.3.0",
+    "zod": "^4.6.7"
+  },
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ]
+}

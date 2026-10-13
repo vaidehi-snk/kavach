@@ -1,0 +1,11 @@
+{
+  "name": "kavach-scam-patterns",
+  "version": "0.1.0",
+  "description": "Explainable scam detector for calls, texts and emails aimed at older adults. US + India scam families, plain-language advice, no network calls.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": { ".": "./src/index.js" },
+  "files": ["src", "README.md", "LICENSE"],
+  "keywords": ["scam", "fraud", "elder-fraud", "digital-arrest", "mcp", "safety"],
+  "license": "MIT"
+}
