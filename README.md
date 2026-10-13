@@ -79,6 +79,7 @@ Optional configuration (environment variables):
 | `AWS_REGION` | Default `us-east-1` |
 | `KAVACH_NTFY_TOPIC` | Family push notifications via [ntfy](https://ntfy.sh) (free app, no account) |
 | `KAVACH_SNS_TOPIC_ARN` | Family email/SMS via Amazon SNS |
+| `KAVACH_SPEND_CAP_INR` | Hard Bedrock spending cap, default **₹50**. Kavach keeps its own cost ledger (`data/spend.json`, priced slightly above list) and stops calling Bedrock at the cap, falling back to rules. Unknown models stay off until you set their prices. |
 | `HOST`, `PORT`, `ALLOWED_HOSTS` | Network binding |
 
 ## AWS services used

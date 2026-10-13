@@ -6,6 +6,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { isInitializeRequest, LATEST_PROTOCOL_VERSION } from '@modelcontextprotocol/sdk/types.js';
 import { createKavachServer } from './mcp.js';
 import { llmConfigured } from './assess.js';
+import { ledger } from './spend.js';
 
 const PORT = Number(process.env.PORT || 8787);
 const HOST = process.env.HOST || '127.0.0.1';
@@ -15,7 +16,7 @@ const app = createMcpExpressApp({ host: HOST, ...(allowedHosts ? { allowedHosts 
 const sessions = new Map(); // sessionId -> transport
 
 app.get('/health', (_req, res) => {
-  res.json({ ok: true, protocol: LATEST_PROTOCOL_VERSION, sessions: sessions.size, bedrock: llmConfigured() });
+  res.json({ ok: true, protocol: LATEST_PROTOCOL_VERSION, sessions: sessions.size, bedrock: llmConfigured(), spend: ledger() });
 });
 
 app.post('/mcp', async (req, res) => {

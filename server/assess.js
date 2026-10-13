@@ -8,6 +8,7 @@
 // If Bedrock is not configured or fails, we fall back to rules and say so.
 import { analyze, spokenSummary, PATTERNS } from 'kavach-scam-patterns';
 import { BedrockRuntimeClient, ConverseCommand } from '@aws-sdk/client-bedrock-runtime';
+import { canSpend, record } from './spend.js';
 
 const MODEL_ID = process.env.BEDROCK_MODEL_ID || 'us.amazon.nova-lite-v1:0';
 const REGION = process.env.AWS_REGION || 'us-east-1';
@@ -52,6 +53,7 @@ export async function askLlm(text, rules) {
       }),
       { abortSignal: ctrl.signal },
     );
+    record(MODEL_ID, out.usage);
     const txt = out.output?.message?.content?.map((c) => c.text || '').join('') || '';
     return { ...parseJson(txt), model: MODEL_ID, usage: out.usage };
   } finally {
@@ -72,6 +74,9 @@ export async function assess(text, opts = {}) {
     return { ...base, llmNote: mode === 'rules' ? undefined : 'Bedrock not configured; rules only' };
   }
   if (mode === 'hybrid' && rules.score >= RULES_SHORTCUT) return { ...base, engine: 'rules (confident)' };
+
+  const budget = canSpend(MODEL_ID);
+  if (!budget.ok) return { ...base, engine: 'rules (spend cap)', llmNote: budget.reason };
 
   let llm;
   try {
