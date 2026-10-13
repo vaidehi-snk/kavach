@@ -31,25 +31,46 @@ setInterval(tick, 10_000);
 
 // ---------------------------------------------------------------- voice out
 let voice;
+// Prefer neural ("Natural" / "Online") voices: Edge ships very natural Indian English ones.
 function pickVoice() {
   const vs = speechSynthesis?.getVoices?.() || [];
-  voice = vs.find((v) => /en-IN/i.test(v.lang) && /female|heera|veena|neerja|swara/i.test(v.name)) || vs.find((v) => /en-IN/i.test(v.lang)) || vs.find((v) => /en-(GB|US)/i.test(v.lang));
+  const natural = (v) => /natural|online|neural/i.test(v.name);
+  const indian = (v) => /en-IN/i.test(v.lang);
+  const female = (v) => /female|neerja|heera|veena|swara|kajal|aditi/i.test(v.name);
+  voice =
+    vs.find((v) => indian(v) && natural(v) && female(v)) ||
+    vs.find((v) => indian(v) && natural(v)) ||
+    vs.find((v) => /^en-/i.test(v.lang) && natural(v)) ||
+    vs.find((v) => indian(v) && female(v)) ||
+    vs.find((v) => indian(v)) ||
+    vs.find((v) => /google uk english female/i.test(v.name)) ||
+    vs.find((v) => /^en-(GB|US)/i.test(v.lang));
 }
 if ('speechSynthesis' in window) {
   pickVoice();
   speechSynthesis.onvoiceschanged = pickVoice;
 }
 let spokenPrefix = '';
-function speak(text) {
-  return new Promise((resolve) => {
-    if (!('speechSynthesis' in window) || !text) return resolve();
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    if (voice) u.voice = voice;
-    u.rate = 0.95;
-    u.onend = u.onerror = () => resolve();
-    speechSynthesis.speak(u);
-  });
+// Speak sentence by sentence with short pauses, and slow down slightly for warnings,
+// so it sounds like someone talking rather than reading a paragraph.
+async function speak(text) {
+  if (!('speechSynthesis' in window) || !text) return;
+  speechSynthesis.cancel();
+  const sentences = text.replace(/\s+/g, ' ').match(/[^.!?]+[.!?]*["']?/g) || [text];
+  for (const [i, s] of sentences.entries()) {
+    const line = s.trim();
+    if (!line) continue;
+    await new Promise((resolve) => {
+      const u = new SpeechSynthesisUtterance(line);
+      if (voice) u.voice = voice;
+      const warning = /scam|hang up|do not|never/i.test(line);
+      u.rate = warning ? 0.9 : 0.97;
+      u.pitch = i === 0 ? 1.05 : 1;
+      u.onend = u.onerror = () => resolve();
+      speechSynthesis.speak(u);
+    });
+    await new Promise((r) => setTimeout(r, 180));
+  }
 }
 
 // ---------------------------------------------------------------- voice in
