@@ -10,7 +10,7 @@ import { analyze, spokenSummary, PATTERNS } from 'kavach-scam-patterns';
 import { BedrockRuntimeClient, ConverseCommand } from '@aws-sdk/client-bedrock-runtime';
 import { canSpend, record } from './spend.js';
 
-const MODEL_ID = process.env.BEDROCK_MODEL_ID || 'us.amazon.nova-lite-v1:0';
+const MODEL_ID = process.env.BEDROCK_MODEL_ID || 'amazon.nova-lite-v1:0';
 const REGION = process.env.AWS_REGION || 'us-east-1';
 const LLM_TIMEOUT_MS = Number(process.env.KAVACH_LLM_TIMEOUT_MS || 8000);
 const RULES_SHORTCUT = 0.75;

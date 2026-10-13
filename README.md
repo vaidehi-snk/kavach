@@ -75,7 +75,7 @@ Optional configuration (environment variables):
 | Variable | Purpose |
 |---|---|
 | `KAVACH_LLM=bedrock` | Turn on Amazon Bedrock (off by default, so nothing bills unexpectedly) |
-| `BEDROCK_MODEL_ID` | Default `us.amazon.nova-lite-v1:0` |
+| `BEDROCK_MODEL_ID` | Default `amazon.nova-lite-v1:0` (single-region, works on the AWS Free plan) |
 | `AWS_REGION` | Default `us-east-1` |
 | `KAVACH_NTFY_TOPIC` | Family push notifications via [ntfy](https://ntfy.sh) (free app, no account) |
 | `KAVACH_SNS_TOPIC_ARN` | Family email/SMS via Amazon SNS |
