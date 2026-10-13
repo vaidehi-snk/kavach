@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kavach for Alexa+</title>
+  <meta name="description" content="Kavach: a scam shield for older adults, running as an MCP server behind a simulated Alexa+ device.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2 4 7v8c0 7.5 5.1 13.4 12 15 6.9-1.6 12-7.5 12-15V7z' fill='%23F2B632'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 4 7v8c0 7.5 5.1 13.4 12 15 6.9-1.6 12-7.5 12-15V7z"/><path class="brand-check" d="m10.5 16 4 4 7-8"/></svg>
+      <div>
+        <h1>Kavach</h1>
+        <p class="tagline">A scam shield for older adults, as an Alexa+ skill</p>
+      </div>
+    </div>
+    <div class="conn" id="conn" role="status">
+      <span class="conn-dot" aria-hidden="true"></span>
+      <span id="conn-text">Connecting to the Kavach MCP server</span>
+    </div>
+  </header>
+
+  <main class="stage">
+    <!-- ============ Aaji's device ============ -->
+    <section class="device" aria-label="Aaji's Alexa+ device (simulated)">
+      <div class="device-bar">
+        <span>Aaji's kitchen</span>
+        <span id="clock"></span>
+      </div>
+
+      <div class="device-body">
+        <div class="ring-wrap">
+          <svg class="ring" id="ring" viewBox="0 0 200 200" data-state="idle" aria-hidden="true">
+            <circle class="ring-track" cx="100" cy="100" r="84"/>
+            <circle class="ring-light" cx="100" cy="100" r="84"/>
+            <path class="ring-shield" d="M100 62 70 74v20c0 19 12.8 34 30 38 17.2-4 30-19 30-38V74z"/>
+          </svg>
+          <p class="ring-label" id="ring-label">Say "Alexa" and tell me what happened</p>
+        </div>
+
+        <div class="talk" aria-live="polite">
+          <p class="heard" id="heard" hidden></p>
+          <p class="reply" id="reply">Hello Aaji. If anyone calls or messages asking for money, codes or secrets, tell me about it first.</p>
+          <div class="verdict" id="verdict" hidden>
+            <span class="verdict-chip" id="verdict-chip"></span>
+            <span class="verdict-type" id="verdict-type"></span>
+            <ul class="flags" id="flags"></ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="consent" id="consent" hidden role="dialog" aria-labelledby="consent-q">
+        <p class="consent-q" id="consent-q"></p>
+        <div class="consent-actions">
+          <button class="btn-yes" id="consent-yes">Yes</button>
+          <button class="btn-no" id="consent-no">No</button>
+        </div>
+        <p class="consent-hint" id="consent-hint">Kavach never contacts anyone without asking you first.</p>
+      </div>
+
+      <form class="ask" id="ask" autocomplete="off">
+        <button type="button" class="mic" id="mic" aria-label="Speak to Alexa" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg>
+        </button>
+        <label class="visually-hidden" for="say">What happened?</label>
+        <input id="say" placeholder="Or type what the caller said…" maxlength="600">
+        <button type="submit" class="send">Ask</button>
+      </form>
+
+      <div class="tries">
+        <span class="tries-label">Try a situation</span>
+        <div class="chips" id="chips"></div>
+      </div>
+    </section>
+
+    <!-- ============ Rohan's phone ============ -->
+    <aside class="phone" aria-label="Rohan's phone">
+      <div class="phone-notch" aria-hidden="true"></div>
+      <div class="phone-time" id="phone-time"></div>
+      <div class="phone-date" id="phone-date"></div>
+      <ol class="notes" id="notes" aria-live="polite">
+        <li class="notes-empty" id="notes-empty">No alerts. Kavach will tell you here if Aai needs you.</li>
+      </ol>
+      <div class="phone-ask">
+        <div class="digest" id="digest" hidden>
+          <p class="digest-text" id="digest-text"></p>
+          <dl class="digest-stats" id="digest-stats"></dl>
+        </div>
+        <button class="phone-btn" id="ask-digest">How is Aai doing this week?</button>
+      </div>
+    </aside>
+  </main>
+
+  <!-- ============ Under the hood ============ -->
+  <section class="hood" aria-label="MCP protocol trace">
+    <div class="hood-head">
+      <h2>Under the hood</h2>
+      <p class="hood-sub">Live JSON-RPC between the Alexa+ host and the Kavach MCP server (Streamable HTTP)</p>
+      <div class="hood-meta" id="hood-meta"></div>
+      <button class="link-btn" id="reset">Clear demo history</button>
+    </div>
+    <ol class="trace" id="trace"></ol>
+  </section>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>

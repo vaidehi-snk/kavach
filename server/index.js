@@ -7,6 +7,10 @@ import { isInitializeRequest, LATEST_PROTOCOL_VERSION } from '@modelcontextproto
 import { createKavachServer } from './mcp.js';
 import { llmConfigured } from './assess.js';
 import { ledger } from './spend.js';
+import { mountAlexa } from './alexa.js';
+import express from 'express';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const PORT = Number(process.env.PORT || 8787);
 const HOST = process.env.HOST || '127.0.0.1';
@@ -52,6 +56,11 @@ const bySession = async (req, res) => {
 app.get('/mcp', bySession);
 app.delete('/mcp', bySession);
 
+// Demo: simulated Alexa+ device + family phone (web/), backed by a real MCP client session.
+mountAlexa(app, { mcpUrl: `http://127.0.0.1:${PORT}/mcp` });
+app.use(express.static(join(dirname(fileURLToPath(import.meta.url)), '..', 'web')));
+
 app.listen(PORT, HOST, () => {
   console.log(`Kavach MCP server on http://${HOST}:${PORT}/mcp  (protocol ${LATEST_PROTOCOL_VERSION}, bedrock: ${llmConfigured() ? 'on' : 'off'})`);
+  console.log(`Demo app:  http://localhost:${PORT}/`);
 });

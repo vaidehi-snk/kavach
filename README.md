@@ -41,7 +41,7 @@ Amazon Bedrock (Converse API) sees the text + the red flags the rules found
 rules act as a floor: the model can raise concern, never clear an obvious scam
 ```
 
-The rule layer is published separately as an MIT-licensed package, **[`kavach-scam-patterns`](packages/scam-patterns)**: 18 scam families (US, India, global) and 11 manipulation tactics (urgency, secrecy, odd payment methods, code requests, remote-access apps…). Each family carries plain-language "truth" and "advice" lines written to be spoken to a 75-year-old.
+The rule layer is published separately as an MIT-licensed package, **[`kavach-scam-patterns`](packages/scam-patterns)**: 19 scam families (US, India, global) and 13 manipulation tactics (urgency, secrecy, odd payment methods, code requests, remote-access apps…). Each family carries plain-language "truth" and "advice" lines written to be spoken to a 75-year-old.
 
 ## Measured, not claimed
 
@@ -61,6 +61,20 @@ npm run eval -- --split dev                # rules, dev split
 KAVACH_LLM=bedrock npm run eval -- --mode hybrid   # rules + Bedrock
 node eval/e2e.js                           # real MCP client ↔ server protocol test
 ```
+
+## See it working
+
+`npm start`, then open **http://localhost:8787** in Chrome or Edge.
+
+The demo page plays the part of an Alexa+ device in Aaji's kitchen, with her son Rohan's phone beside it. Behind it runs a **real MCP client** (the "Alexa+ host") connected to the Kavach server over Streamable HTTP, exactly as Alexa+ connects to a self-hosted MCP server. Nothing on the page is faked:
+
+- Speak (microphone button) or type what happened, or pick a situation.
+- Kavach's verdict lights the ring: red for a scam, saffron for "be careful", green for safe.
+- When it's a scam, the server sends an **MCP elicitation**: Aaji answers yes or no by voice or tap, and only then does an alert reach Rohan's phone.
+- Rohan can ask "How is Aai doing this week?" and gets the `family_digest`.
+- **Under the hood** shows every JSON-RPC message between host and server, live.
+
+With `KAVACH_LLM=bedrock`, the host's brain is an Amazon Bedrock agent that is given Kavach's MCP tools as tool specs; without it, a small offline intent router picks the tool.
 
 ## Run it
 
@@ -90,7 +104,9 @@ Optional configuration (environment variables):
 ```
 packages/scam-patterns/   open-source detector (MIT)
 server/                   MCP server: index.js (HTTP), mcp.js (tools/resources/prompts),
-                          assess.js (rules + Bedrock), notify.js, store.js
+                          assess.js (rules + Bedrock), notify.js, store.js, spend.js (₹ cap)
+                          alexa.js (simulated Alexa+ host: real MCP client + Bedrock agent)
+web/                      demo device + family phone + live protocol trace
 eval/                     labeled cases, accuracy runner, end-to-end protocol test
 ```
 

@@ -2,7 +2,11 @@
 //   - ntfy.sh push notification (free, no account: install the ntfy app, subscribe to a topic)
 //   - Amazon SNS topic (email/SMS subscribers), set KAVACH_SNS_TOPIC_ARN
 //   - always logged to the console and the activity log
+import { EventEmitter } from 'node:events';
 import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
+
+// In-process bus so the demo UI can show alerts arriving on the family member's phone.
+export const alertBus = new EventEmitter();
 
 const NTFY_BASE = process.env.KAVACH_NTFY_BASE || 'https://ntfy.sh';
 const SNS_TOPIC = process.env.KAVACH_SNS_TOPIC_ARN;
@@ -36,6 +40,7 @@ export async function notify(member, { title, message, priority = 'high', tags =
   }
 
   console.log(`[kavach alert -> ${member.name}] ${title}: ${message}`);
+  alertBus.emit('alert', { to: member.name, relation: member.relation, title, message, priority, at: new Date().toISOString() });
   results.push({ channel: 'log', ok: true });
   return results;
 }

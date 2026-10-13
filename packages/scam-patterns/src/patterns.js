@@ -282,11 +282,22 @@ export const PATTERNS = [
       '\\b(move|transfer|withdraw)\\b.*\\b(money|funds|savings|cash)\\b.*\\b(safe|secure|protected|new) (account|wallet|place)\\b',
       '\\b(fraud (department|team|alert))\\b.*\\b(move|transfer|withdraw|gift card|bitcoin|courier)\\b',
       '\\bwithdraw\\b.*\\b(cash|money)\\b.*\\b(courier|agent|officer|someone|a man|driver)\\b.*\\b(collect|pick (it )?up|come (by|to))\\b',
-      '\\b(chase|wells fargo|bank of america|citi|sbi|hdfc|icici|zelle|bank)\\b.*\\b(verification code|otp|code)\\b.*\\b(read|tell|give|share)\\b',
-      '\\b(read|tell|give|share)\\b.*\\b(verification code|otp)\\b.*\\b(stop|cancel|block|reverse)\\b',
+
     ),
     truth: 'Your bank will never ask you to move money to a "safe account" or hand cash to a courier.',
     advice: 'Hang up and call your bank on the number printed on your card.',
+  },
+  {
+    id: 'otp_sharing',
+    name: 'Request to read out an OTP or verification code',
+    region: 'GLOBAL',
+    weight: 0.35,
+    cues: r(
+      '\\b(chase|wells fargo|bank of america|citi|sbi|hdfc|icici|zelle|bank|kyc|amazon|paytm|phonepe)\\b.*\\b(verification code|otp|code)\\b.*\\b(read|tell|give|share)\\b',
+      '\\b(read|tell|give|share)\\b.*\\b(verification code|otp)\\b.*\\b(stop|cancel|block|reverse|update|complete)\\b',
+    ),
+    truth: 'No real bank or company ever asks you to read out an OTP or code. That code is the key to your account, and whoever has it can take your money.',
+    advice: 'Do not share the code. Hang up and call your bank on the number printed on your card or passbook.',
   },
   {
     id: 'medicare_health',

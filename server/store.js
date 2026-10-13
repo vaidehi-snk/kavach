@@ -57,3 +57,8 @@ export function setHousehold(patch) {
   save();
   return s;
 }
+
+export function resetEvents() {
+  load().events = [];
+  save();
+}
