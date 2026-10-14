@@ -15,9 +15,10 @@ let sns;
 export async function notify(member, { title, message, priority = 'high', tags = ['rotating_light'] }) {
   const results = [];
 
-  if (member.ntfyTopic) {
+  const topic = member.ntfyTopic || process.env.KAVACH_NTFY_TOPIC;
+  if (topic) {
     try {
-      const res = await fetch(`${NTFY_BASE}/${encodeURIComponent(member.ntfyTopic)}`, {
+      const res = await fetch(`${NTFY_BASE}/${encodeURIComponent(topic)}`, {
         method: 'POST',
         body: message,
         headers: { Title: title, Priority: priority, Tags: tags.join(',') },

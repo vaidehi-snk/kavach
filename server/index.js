@@ -1,5 +1,6 @@
 // Kavach MCP server over Streamable HTTP (MCP spec 2025-11-25).
 // Stateful sessions so the server can send elicitation requests back to the client.
+import './env.js'; // must stay first: loads .env before other modules read settings
 import { randomUUID } from 'node:crypto';
 import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
