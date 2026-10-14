@@ -183,14 +183,23 @@ button, input { font: inherit; color: inherit; }
 /* ---------------- phone ---------------- */
 .phone {
   position: relative; display: flex; flex-direction: column;
-  min-height: 600px; padding: 40px 16px 18px; border-radius: 44px;
+  height: 680px; padding: 40px 16px 18px; border-radius: 44px; overflow: hidden;
   background: linear-gradient(170deg, #2b2f52 0%, #151832 70%);
   border: 8px solid #0a0c1d; box-shadow: 0 30px 80px -40px rgb(0 0 0 / 0.8);
 }
 .phone-notch { position: absolute; top: 12px; left: 50%; width: 96px; height: 24px; transform: translateX(-50%); border-radius: 14px; background: #0a0c1d; }
 .phone-time { text-align: center; font-size: 56px; font-weight: 700; line-height: 1; letter-spacing: -0.02em; margin-top: 10px; }
 .phone-date { text-align: center; color: var(--muted); font-size: 15px; margin-bottom: 18px; }
-.notes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+.notes {
+  list-style: none; margin: 0 -6px; padding: 0 6px 6px; display: flex; flex-direction: column; gap: 10px;
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  scrollbar-width: thin; scrollbar-color: rgb(255 255 255 / 0.2) transparent;
+  /* fade older notifications out at the bottom, like a real lock screen */
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
+}
+.note { flex: none; }
+.note-body { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.note-verify .note-body { -webkit-line-clamp: 6; }
 .notes-empty { color: var(--muted); font-size: 14px; text-align: center; padding: 12px 8px; }
 .note {
   background: rgb(242 239 231 / 0.94); color: var(--night); border-radius: 18px; padding: 12px 14px;
@@ -212,7 +221,13 @@ button, input { font: inherit; color: inherit; }
 .phone.buzz { animation: buzz 0.12s linear 5; }
 @keyframes buzz { 50% { transform: translateX(3px); } }
 
-.phone-ask { margin-top: 14px; }
+.phone-ask { margin-top: 14px; flex: none; }
+.digest { position: relative; }
+.digest-text { max-height: 88px; overflow-y: auto; padding-right: 18px; font-size: 14px !important; }
+.digest-close { position: absolute; top: 6px; right: 8px; width: 28px; height: 28px; border: 0; border-radius: 50%; background: transparent; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; }
+.digest-close:hover { background: var(--night-3); color: var(--ink); }
+.digest-stats div { padding: 6px !important; }
+.digest-stats dd { font-size: 18px !important; }
 .phone-btn { width: 100%; min-height: 48px; border-radius: 14px; border: 0; background: var(--turmeric); color: var(--night); font-weight: 700; cursor: pointer; }
 .digest { background: var(--night-2); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; margin-bottom: 10px; animation: rise 0.3s ease-out; }
 .digest-text { margin: 0 0 10px; font-size: 15px; line-height: 1.45; }
@@ -245,7 +260,7 @@ button, input { font: inherit; color: inherit; }
 /* ---------------- responsive ---------------- */
 @media (max-width: 1000px) {
   .stage { grid-template-columns: minmax(0, 1fr); }
-  .phone { min-height: 0; max-width: 380px; margin: 0 auto; width: 100%; }
+  .phone { height: 640px; max-width: 380px; margin: 0 auto; width: 100%; }
 }
 @media (max-width: 640px) {
   .top { flex-direction: column; align-items: flex-start; padding: 16px 16px 6px; }

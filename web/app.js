@@ -210,6 +210,7 @@ $('chips').replaceChildren(
     return b;
   }),
 );
+$('digest-close').addEventListener('click', () => ($('digest').hidden = true));
 $('ask-digest').addEventListener('click', () => ask('How is Aai doing this week? Anything suspicious?', 'family'));
 
 
