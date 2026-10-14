@@ -23,7 +23,7 @@ await c1.connect(t1);
 check('negotiated protocol 2025-11-25', t1.protocolVersion === '2025-11-25', t1.protocolVersion);
 
 const { tools } = await c1.listTools();
-check('4 tools listed', tools.length === 4, tools.map((t) => t.name).join(', '));
+check('5 tools listed', tools.length === 5, tools.map((t) => t.name).join(', '));
 check('check_message has outputSchema', Boolean(tools.find((t) => t.name === 'check_message')?.outputSchema));
 
 const scam = await c1.callTool({

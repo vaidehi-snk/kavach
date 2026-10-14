@@ -14,6 +14,7 @@ const SCENARIOS = [
   { label: 'Grandson needs bail', text: 'Alexa, someone who sounded like my grandson called. He is in jail after an accident and needs bail money in gift cards today. He said do not tell his parents.' },
   { label: 'Electricity cut-off SMS', text: 'Alexa, I got a message: your electricity power will be disconnected tonight at 9.30 pm because your previous month bill was not updated. Immediately contact our electricity officer.' },
   { label: 'Bank asks for OTP', text: 'Alexa, a man from the bank says my KYC has expired and my account will be frozen. He says I will get an OTP and I should read it to him.' },
+  { label: 'Is this really Rohan?', text: "Alexa, someone on the phone says he is Rohan. His voice sounds just like him. He says he had an accident and needs 50,000 rupees on GPay right now. Is this really Rohan?" },
   { label: 'Rohan calls about dinner', text: 'Alexa, Rohan called from his usual number. He will be home by eight and wants dal for dinner.', kind: 'safe' },
   { label: 'Good morning check-in', text: 'Good morning Alexa, I am feeling fine today. I went for my walk.', kind: 'safe' },
   { label: 'Not feeling well', text: 'Alexa, I am not feeling well today, a little dizzy.', kind: 'safe' },
@@ -202,6 +203,41 @@ $('consent-yes').addEventListener('click', () => answerConsent(true));
 $('consent-no').addEventListener('click', () => answerConsent(false));
 
 // ---------------------------------------------------------------- phone
+// ---------------------------------------------------------------- verification ("Is this really Rohan?")
+function showVerifyCard(v) {
+  $('notes-empty')?.remove();
+  const li = document.createElement('li');
+  li.className = 'note note-verify';
+  li.dataset.urgent = '1';
+  li.dataset.id = v.id;
+  li.innerHTML = `<div class="note-head"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 4 7v8c0 7.5 5.1 13.4 12 15 6.9-1.6 12-7.5 12-15V7z"/></svg><span>Kavach</span><span>now</span></div><p class="note-title"></p><p class="note-body"></p><div class="note-actions"><button type="button" data-a="yes">Yes, it's me</button><button type="button" data-a="no">No, not me</button></div>`;
+  li.querySelector('.note-title').textContent = v.title;
+  li.querySelector('.note-body').textContent = v.message.replace(/ Tap below.*$/, '');
+  li.querySelectorAll('button').forEach((b) =>
+    b.addEventListener('click', async () => {
+      li.querySelectorAll('button').forEach((x) => (x.disabled = true));
+      await fetch('/api/verify-answer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: v.id, answer: b.dataset.a }) });
+    }),
+  );
+  $('notes').prepend(li);
+  buzz();
+}
+function finishVerifyCard({ id, answer, via }) {
+  const li = document.querySelector(`.note-verify[data-id="${id}"]`);
+  if (!li) return;
+  const actions = li.querySelector('.note-actions');
+  const label = answer === 'yes' ? 'You confirmed it was you' : answer === 'no' ? 'You said it was not you' : 'No answer in time';
+  actions.replaceChildren(Object.assign(document.createElement('p'), { className: 'note-answered', textContent: `${label}${via === 'phone' ? ' (from your phone)' : ''}` }));
+  li.dataset.urgent = answer === 'yes' ? '0' : '1';
+}
+function buzz() {
+  const phone = document.querySelector('.phone');
+  phone.classList.remove('buzz');
+  void phone.offsetWidth;
+  phone.classList.add('buzz');
+  navigator.vibrate?.(200);
+}
+
 function addNote(a) {
   $('notes-empty')?.remove();
   const li = document.createElement('li');
@@ -211,11 +247,7 @@ function addNote(a) {
   li.querySelector('.note-title').textContent = a.title.replace(/^Kavach:\s*/, '');
   li.querySelector('.note-body').textContent = a.message.split('\n')[0];
   $('notes').prepend(li);
-  const phone = document.querySelector('.phone');
-  phone.classList.remove('buzz');
-  void phone.offsetWidth;
-  phone.classList.add('buzz');
-  navigator.vibrate?.(200);
+  buzz();
 }
 function showDigest(d, text) {
   $('digest').hidden = false;
@@ -312,6 +344,7 @@ function connect() {
       showVerdict(r.structured);
     }
     if (r.name === 'family_digest' && r.structured) showDigest(r.structured);
+    if (r.name === 'verify_caller' && r.structured) lastVerdict = r.structured;
     if (r.name === 'daily_checkin') setRing(/sorry/i.test(r.text) ? 'idle' : 'safe', /asked/i.test(r.text) ? 'Rohan will call you' : 'Noted for the family');
   });
   es.addEventListener('elicit', async (e) => {
@@ -347,6 +380,23 @@ function connect() {
     await speak(rest);
   });
   es.addEventListener('alert', (e) => addNote(JSON.parse(e.data)));
+  es.addEventListener('verify', (e) => {
+    const v = JSON.parse(e.data);
+    showVerifyCard(v);
+    setRing('thinking', `Asking ${v.to} on his phone…`);
+    const line = `I'm asking ${v.to} on his own phone right now. Please stay with me, and don't send anything yet.`;
+    setReply(line);
+    speak(line);
+  });
+  es.addEventListener('progress', (e) => {
+    const p = JSON.parse(e.data);
+    if (p.name === 'verify_caller' && p.total) setRing('thinking', `Waiting for an answer · ${Math.max(0, p.total - p.progress)}s`);
+  });
+  es.addEventListener('verify_done', (e) => {
+    const d = JSON.parse(e.data);
+    finishVerifyCard(d);
+    setRing(d.answer === 'yes' ? 'safe' : d.answer === 'no' ? 'scam' : 'suspicious', d.answer === 'yes' ? 'Confirmed by family' : d.answer === 'no' ? 'Impersonation caught' : 'No answer yet');
+  });
   es.addEventListener('note', (e) => addTrace({ dir: 'in', msg: { method: 'note', params: JSON.parse(e.data) } }));
 }
 connect();

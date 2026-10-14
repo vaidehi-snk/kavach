@@ -14,6 +14,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { ElicitRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { BedrockRuntimeClient, ConverseCommand } from '@aws-sdk/client-bedrock-runtime';
 import { alertBus } from './notify.js';
+import { answerVerification } from './verify.js';
 import { household, resetEvents } from './store.js';
 import { llmConfigured } from './assess.js';
 import { canSpend, record } from './spend.js';
@@ -31,9 +32,11 @@ function emit(s, event, data) {
   if (!s.streams.size && event === 'rpc') (s.backlog ??= []).push(data);
   for (const res of s.streams) send(res, event, data);
 }
-alertBus.on('alert', (a) => {
-  for (const res of streams) send(res, 'alert', a);
-});
+for (const ev of ['alert', 'verify', 'verify_done']) {
+  alertBus.on(ev, (a) => {
+    for (const res of streams) send(res, ev, a);
+  });
+}
 
 async function getSession(sid, mcpUrl) {
   let s = sessions.get(sid);
@@ -90,7 +93,12 @@ async function getSession(sid, mcpUrl) {
 async function callTool(s, name, args) {
   emit(s, 'tool_call', { name, args });
   const t0 = Date.now();
-  const res = await s.client.callTool({ name, arguments: args });
+  // Long-running tools (verify_caller) report MCP progress; keep the request alive while they do.
+  const res = await s.client.callTool({ name, arguments: args }, undefined, {
+    timeout: 150_000,
+    resetTimeoutOnProgress: true,
+    onprogress: (p) => emit(s, 'progress', { name, ...p }),
+  });
   const result = { name, ms: Date.now() - t0, text: res.content?.map((c) => c.text).join(' '), structured: res.structuredContent ?? null, isError: !!res.isError };
   emit(s, 'tool_result', result);
   return result;
@@ -112,6 +120,18 @@ async function routeOffline(s, utterance, persona) {
     const r = await callTool(s, 'family_digest', { days: m ? Number(m[1]) : /month/i.test(u) ? 30 : 7 });
     return r.text;
   }
+  const fam = household().family;
+  const famNames = fam.map((f) => f.name).join('|');
+  const verifyRe = new RegExp(`\\b(is (this|it|he|she) really|really (${famNames}|my son|my daughter|my grandson)|check with|verify|confirm with|ask (${famNames}|my son|my daughter)( if)?)\\b`, 'i');
+  if (verifyRe.test(u)) {
+    const who = fam.find((f) => new RegExp(`\\b(${f.name}|${f.relation})\\b`, 'i').test(u));
+    // What the caller wants = the sentences that aren't the "is it really him?" question,
+    // or the last thing she asked Kavach to check ("check with Rohan" as a follow-up).
+    const rest = (u.match(/[^.!?]+[.!?]*/g) || []).filter((x) => !verifyRe.test(x) && !/\b(says|said|claims?|claiming) (he|she|it) is\b|\bvoice\b|\bsounds? (just |exactly )?like\b/i.test(x)).join(' ').trim();
+    const request = rest.length > 12 ? rest : s.lastCheck;
+    const r = await callTool(s, 'verify_caller', { claimedName: who?.name, ...(request ? { request } : {}), timeoutSeconds: Number(process.env.KAVACH_VERIFY_TIMEOUT_S || 45) });
+    return r.structured?.spoken || r.text;
+  }
   const alertMatch = u.match(/\b(tell|call|message|inform|alert|let)\b.*\b(rohan|my son|son|family|my daughter)\b/i);
   if (alertMatch && u.split(/\s+/).length < 16 && !SCAMMY.test(u.replace(alertMatch[0], ''))) {
     const r = await callTool(s, 'alert_family', { reason: `Aaji asked Kavach to reach you: "${u}"`, urgency: 'normal' });
@@ -123,6 +143,7 @@ async function routeOffline(s, utterance, persona) {
     const r = await callTool(s, 'daily_checkin', { feeling, note: u });
     return r.text;
   }
+  s.lastCheck = u;
   const r = await callTool(s, 'check_message', { text: u });
   return r.structured?.spoken || r.text;
 }
@@ -134,6 +155,7 @@ Rules:
 - If she describes ANY call, message, visitor or request involving money, codes, threats, prizes, police, banks or personal details, call check_message with her words. Then repeat the tool's "spoken" text calmly; do not add new facts.
 - If she says how she feels or greets you, call daily_checkin.
 - If a family member asks how she is doing, call family_digest.
+- If someone on the phone claims to be family and she asks whether it is really them, or says \"check with Rohan\", call verify_caller with claimedName and what the caller wants.
 - If she asks you to tell or call family, call alert_family.
 - Answer in at most three short spoken sentences. No lists, no markdown.`;
 
@@ -233,6 +255,12 @@ export function mountAlexa(app, { mcpUrl }) {
     if (!resolve) return res.status(404).json({ error: 'That question has expired' });
     sessions.get(sid).pending.delete(id);
     resolve(Boolean(accept));
+    res.json({ ok: true });
+  });
+
+  app.post('/api/verify-answer', (req, res) => {
+    const { id, answer } = req.body || {};
+    if (!answerVerification(String(id), answer === 'yes' ? 'yes' : 'no', 'app')) return res.status(404).json({ error: 'That question has already been answered' });
     res.json({ ok: true });
   });
 

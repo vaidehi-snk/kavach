@@ -12,6 +12,7 @@ Kavach is a **self-hosted MCP server (spec 2025-11-25, Streamable HTTP)**, the o
 | Tool | What it's for |
 |---|---|
 | `check_message` | Describe a call, text, WhatsApp or email in your own words → verdict, scam type, red flags, the one fact that breaks the scam, and a sentence to speak aloud. If it's a scam, offers to alert family. |
+| `verify_caller` | **"Is this really Rohan?"** A caller claims to be family. Kavach asks the *real* family member on their own phone (Yes / No buttons) and tells the person the truth. Defeats AI voice-clone scams. Streams MCP progress notifications while it waits. |
 | `alert_family` | Push / email alert to family members. **Never sends without the person's consent**, collected through MCP elicitation. |
 | `daily_checkin` | "I'm fine today" → logged for family; "not feeling well" → offers to ask family to call. |
 | `family_digest` | For the son or daughter: "How's Mom doing?" → scams stopped, alerts, check-ins. |
@@ -21,6 +22,7 @@ Kavach is a **self-hosted MCP server (spec 2025-11-25, Streamable HTTP)**, the o
 
 ### MCP features used deliberately
 - **Elicitation for consent.** The server asks the person directly before anyone is contacted. Clients without elicitation get a verbal-confirmation fallback, and the server refuses to alert without `confirmed=true`.
+- **Progress notifications** while `verify_caller` waits for the family member's answer, with the host resetting its timeout on progress.
 - **Structured output** (`outputSchema` + `structuredContent`), so an agent can act on the verdict, not just read it.
 - **Tool annotations** (`readOnlyHint`, `openWorldHint`) so hosts can tell harmless lookups from actions that reach other people.
 - **Resource templates with completion** for the scam knowledge base.
@@ -81,7 +83,8 @@ With `KAVACH_LLM=bedrock`, the host's brain is an Amazon Bedrock agent that is g
 ```bash
 npm install
 npm start                       # http://127.0.0.1:8787/mcp
-node eval/e2e.js                # 13 protocol checks
+node eval/e2e.js                # protocol checks
+node eval/e2e-verify.js         # verification: denied / confirmed / no answer
 ```
 
 Optional configuration (environment variables):
