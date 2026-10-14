@@ -4,134 +4,201 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Kavach for Alexa+</title>
-  <meta name="description" content="Kavach: a scam shield for older adults, running as an MCP server behind a simulated Alexa+ device.">
+  <meta name="description" content="Kavach is an Alexa+ skill that protects older adults from phone and message scams while they are happening, and brings their family in before any money moves.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2 4 7v8c0 7.5 5.1 13.4 12 15 6.9-1.6 12-7.5 12-15V7z' fill='%23F2B632'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="home.css">
 </head>
 <body>
-  <header class="top">
-    <div class="brand">
+  <header class="nav">
+    <a class="brand" href="/">
       <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 4 7v8c0 7.5 5.1 13.4 12 15 6.9-1.6 12-7.5 12-15V7z"/><path class="brand-check" d="m10.5 16 4 4 7-8"/></svg>
-      <div>
-        <h1>Kavach</h1>
-        <p class="tagline">A scam shield for older adults, as an Alexa+ skill</p>
-      </div>
-    </div>
-    <div class="conn" id="conn" role="status">
-      <span class="conn-dot" aria-hidden="true"></span>
-      <span id="conn-text">Connecting to the Kavach MCP server</span>
-    </div>
+      <span>Kavach</span>
+    </a>
+    <nav aria-label="Sections">
+      <a href="#problem">The problem</a>
+      <a href="#how">What it does</a>
+      <a href="#build">How it's built</a>
+      <a href="#proof">Results</a>
+    </nav>
+    <a class="nav-cta" href="/demo">Try the live demo</a>
   </header>
 
-  <main class="stage">
-    <!-- ============ Aaji's device ============ -->
-    <section class="device" aria-label="Aaji's Alexa+ device (simulated)">
-      <div class="device-bar">
-        <span>Aaji's kitchen</span>
-        <span id="clock"></span>
+  <main>
+    <!-- ============ hero ============ -->
+    <section class="hero">
+      <div class="hero-copy">
+        <h1>Kavach steps in while the scammer is still talking.</h1>
+        <p class="lede">An Alexa+ skill for older adults. It listens to suspicious calls, checks what they've been told, asks the real family when someone claims to be them, and speaks up before any money moves.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="/demo">Watch it stop a scam call</a>
+          <a class="btn btn-ghost" href="https://github.com/vaidehi-snk/kavach">Read the code</a>
+        </div>
+        <p class="hero-note">Open source. Runs as a self-hosted MCP server, the standard Alexa+ uses for integrations.</p>
       </div>
 
-      <div class="device-body">
-        <div class="ring-wrap">
-          <svg class="ring" id="ring" viewBox="0 0 200 200" data-state="idle" aria-hidden="true">
-            <circle class="ring-track" cx="100" cy="100" r="84"/>
-            <circle class="ring-light" cx="100" cy="100" r="84"/>
-            <path class="ring-shield" d="M100 62 70 74v20c0 19 12.8 34 30 38 17.2-4 30-19 30-38V74z"/>
-          </svg>
-          <p class="ring-label" id="ring-label">Say "Alexa" and tell me what happened</p>
+      <figure class="replay" id="replay" aria-label="Example: Kavach interrupting a fake police call">
+        <div class="replay-head">
+          <span class="replay-dot" aria-hidden="true"></span>
+          <span>Call on speaker in Aaji's kitchen</span>
+          <span class="replay-time" id="replay-time">0:00</span>
         </div>
-
-        <div class="call" id="call" hidden aria-live="polite">
-          <div class="call-head">
-            <span class="call-live" aria-hidden="true"></span>
-            <span class="call-who" id="call-who">Call on speaker</span>
-            <span class="call-time" id="call-time">0:00</span>
-          </div>
-          <ol class="captions" id="captions"></ol>
-          <div class="meter" id="meter" data-stage="listening">
-            <div class="meter-row">
-              <span class="meter-label">Scam risk</span>
-              <span class="meter-stage" id="meter-stage">Kavach is listening</span>
-            </div>
-            <div class="meter-track"><div class="meter-fill" id="meter-fill"></div></div>
-            <ul class="flags call-flags" id="call-flags"></ul>
-          </div>
-          <button type="button" class="call-end" id="call-end">End call</button>
+        <ol class="replay-lines" id="replay-lines">
+          <li data-at="0">Madam, this is Inspector Vikram Singh from Mumbai Police cyber crime.</li>
+          <li data-at="1">A parcel in your name was seized. It contains fake passports and drugs.</li>
+          <li data-at="2" class="cut">Your Aadhaar is linked to a money laundering case, and an FIR has been regis</li>
+          <li data-at="3" class="kavach">Aaji, stop. This call is a scam. Police never arrest anyone over a video call. Hang up now.</li>
+        </ol>
+        <div class="replay-meter" aria-hidden="true">
+          <span>Scam risk</span>
+          <div class="replay-track"><div class="replay-fill" id="replay-fill"></div></div>
         </div>
+        <button class="replay-again" id="replay-again" type="button">Replay</button>
+      </figure>
+    </section>
 
-        <div class="talk" aria-live="polite">
-          <p class="heard" id="heard" hidden></p>
-          <p class="reply" id="reply">Hello Aaji. If anyone calls or messages asking for money, codes or secrets, tell me about it first.</p>
-          <div class="verdict" id="verdict" hidden>
-            <span class="verdict-chip" id="verdict-chip"></span>
-            <span class="verdict-type" id="verdict-type"></span>
-            <ul class="flags" id="flags"></ul>
-          </div>
+    <!-- ============ problem ============ -->
+    <section class="problem" id="problem">
+      <h2>Fraud against older adults is a multi-billion problem, and it happens in minutes.</h2>
+      <div class="stats">
+        <div class="stat">
+          <p class="stat-num">$4.88 billion</p>
+          <p class="stat-text">reported lost by Americans over 60 to online and phone fraud in 2024, across 147,127 complaints.</p>
+          <p class="stat-src">FBI Internet Crime Complaint Center, 2024</p>
+        </div>
+        <div class="stat">
+          <p class="stat-num">₹120 crore</p>
+          <p class="stat-text">lost by Indians to fake "digital arrest" calls in just January to April 2024. One scam type, four months.</p>
+          <p class="stat-src">Indian Cybercrime Coordination Centre (I4C)</p>
         </div>
       </div>
 
-      <div class="consent" id="consent" hidden role="dialog" aria-labelledby="consent-q">
-        <p class="consent-q" id="consent-q"></p>
-        <div class="consent-actions">
-          <button class="btn-yes" id="consent-yes">Yes</button>
-          <button class="btn-no" id="consent-no">No</button>
-        </div>
-        <p class="consent-hint" id="consent-hint">Kavach never contacts anyone without asking you first.</p>
-      </div>
+      <p class="insight">Different countries, same playbook. Every one of these scams needs the person to be alone, rushed, and paying in a way that can't be undone. Spam filters and bank alerts act after the money is gone. Kavach acts in the room, during the call.</p>
+      <ul class="moves">
+        <li><span class="move-quote">"Don't tell your son."</span><span class="move-name">Isolate</span></li>
+        <li><span class="move-quote">"You must do this right now."</span><span class="move-name">Rush</span></li>
+        <li><span class="move-quote">"Pay with gift cards. Read me the code."</span><span class="move-name">Take</span></li>
+      </ul>
+    </section>
 
-      <form class="ask" id="ask" autocomplete="off">
-        <button type="button" class="mic" id="mic" aria-label="Speak to Alexa" aria-pressed="false">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg>
-        </button>
-        <label class="visually-hidden" for="say">What happened?</label>
-        <input id="say" placeholder="Or type what the caller said…" maxlength="600">
-        <button type="submit" class="send">Ask</button>
-      </form>
-
-      <div class="tries tries-call" id="tries-call">
-        <span class="tries-label">Let Kavach listen to a call</span>
-        <div class="chips" id="call-chips"></div>
-      </div>
-
-      <div class="tries">
-        <span class="tries-label">Try a situation</span>
-        <div class="chips" id="chips"></div>
+    <!-- ============ capabilities ============ -->
+    <section class="how" id="how">
+      <h2>Four ways Kavach protects, all by voice.</h2>
+      <div class="caps">
+        <article class="cap">
+          <h3>Listens to the call</h3>
+          <p>Put a suspicious call on speaker and say "Alexa, listen to this call." Kavach scores the whole conversation as it unfolds and cuts in the moment it turns into a scam.</p>
+          <blockquote>"Aaji, stop. This call is a scam. Hang up now."</blockquote>
+        </article>
+        <article class="cap">
+          <h3>Asks the real family</h3>
+          <p>Voices can be copied by AI. When a caller claims to be her grandson, Kavach sends the real one a Yes / No question on his own phone and tells her the truth.</p>
+          <blockquote>"That is not Rohan. He just told me he is not calling you."</blockquote>
+        </article>
+        <article class="cap">
+          <h3>Checks anything she's told</h3>
+          <p>Describe a text, WhatsApp, email or caller in your own words. Kavach names the scam, says the one fact that breaks it, and what to do next.</p>
+          <blockquote>"Electricity companies never ask you to call a personal mobile number."</blockquote>
+        </article>
+        <article class="cap">
+          <h3>Keeps the family close</h3>
+          <p>Daily check-ins, alerts when something's wrong, and a weekly summary for the family: scams stopped, how she's been feeling, anything worth a call.</p>
+          <blockquote>"Aai checked in every day this week. Kavach stopped 2 scam calls."</blockquote>
+        </article>
       </div>
     </section>
 
-    <!-- ============ Rohan's phone ============ -->
-    <aside class="phone" aria-label="Rohan's phone">
-      <div class="phone-notch" aria-hidden="true"></div>
-      <div class="phone-time" id="phone-time"></div>
-      <div class="phone-date" id="phone-date"></div>
-      <ol class="notes" id="notes" aria-live="polite">
-        <li class="notes-empty" id="notes-empty">No alerts. Kavach will tell you here if Aai needs you.</li>
-      </ol>
-      <div class="phone-ask">
-        <div class="digest" id="digest" hidden>
-          <button type="button" class="digest-close" id="digest-close" aria-label="Close summary">×</button>
-          <p class="digest-text" id="digest-text"></p>
-          <dl class="digest-stats" id="digest-stats"></dl>
-        </div>
-        <button class="phone-btn" id="ask-digest">How is Aai doing this week?</button>
+    <!-- ============ consent ============ -->
+    <section class="consent-band">
+      <p class="consent-big"><span>Kavach never contacts anyone without asking her first.</span></p>
+      <p class="consent-small">Protection shouldn't feel like surveillance. Every alert to family is a question she answers by voice or tap, built on MCP elicitation, so the assistant cannot skip it. Calls are scored as they happen and are not recorded.</p>
+    </section>
+
+    <!-- ============ architecture ============ -->
+    <section class="build" id="build">
+      <h2>One MCP server. Any assistant can use it.</h2>
+      <p class="section-lede">Kavach is a self-hosted Model Context Protocol server (spec 2025-11-25, Streamable HTTP). Alexa+ connects to it the way it connects to any integration; the demo uses a real MCP client in the same role.</p>
+      <figure class="arch">
+        <svg viewBox="0 0 960 360" role="img" aria-labelledby="arch-title">
+          <title id="arch-title">Alexa+ talks to the Kavach MCP server, which uses a rules engine and Amazon Bedrock, and reaches family phones through push and Amazon SNS.</title>
+          <defs>
+            <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" class="a-head"/></marker>
+          </defs>
+          <!-- host -->
+          <rect class="a-box" x="10" y="130" width="180" height="100" rx="16"/>
+          <text class="a-title" x="100" y="172" text-anchor="middle">Alexa+</text>
+          <text class="a-sub" x="100" y="196" text-anchor="middle">or any MCP host</text>
+          <!-- link -->
+          <line class="a-line" x1="190" y1="180" x2="330" y2="180" marker-end="url(#arr)" marker-start="url(#arr)"/>
+          <text class="a-label" x="260" y="166" text-anchor="middle">Streamable HTTP</text>
+          <text class="a-label" x="260" y="204" text-anchor="middle">JSON-RPC</text>
+          <!-- server -->
+          <rect class="a-box a-main" x="330" y="40" width="300" height="280" rx="20"/>
+          <text class="a-title" x="480" y="80" text-anchor="middle">Kavach MCP server</text>
+          <text class="a-mono" x="356" y="120">check_message</text>
+          <text class="a-mono" x="356" y="146">call_guardian</text>
+          <text class="a-mono" x="356" y="172">verify_caller</text>
+          <text class="a-mono" x="356" y="198">alert_family</text>
+          <text class="a-mono" x="356" y="224">daily_checkin</text>
+          <text class="a-mono" x="356" y="250">family_digest</text>
+          <text class="a-sub" x="356" y="290">+ resources, prompts, elicitation, progress</text>
+          <!-- engines -->
+          <rect class="a-box" x="720" y="20" width="230" height="90" rx="16"/>
+          <text class="a-title" x="835" y="58" text-anchor="middle">Rules engine</text>
+          <text class="a-sub" x="835" y="82" text-anchor="middle">offline, explainable, ~1 ms</text>
+          <rect class="a-box" x="720" y="135" width="230" height="90" rx="16"/>
+          <text class="a-title" x="835" y="173" text-anchor="middle">Amazon Bedrock</text>
+          <text class="a-sub" x="835" y="197" text-anchor="middle">judgment on unclear cases</text>
+          <rect class="a-box a-family" x="720" y="250" width="230" height="90" rx="16"/>
+          <text class="a-title" x="835" y="288" text-anchor="middle">Family phones</text>
+          <text class="a-sub" x="835" y="312" text-anchor="middle">push and Amazon SNS</text>
+          <line class="a-line" x1="630" y1="100" x2="720" y2="65" marker-end="url(#arr)"/>
+          <line class="a-line" x1="630" y1="180" x2="720" y2="180" marker-end="url(#arr)"/>
+          <line class="a-line" x1="630" y1="260" x2="720" y2="295" marker-end="url(#arr)" marker-start="url(#arr)"/>
+        </svg>
+      </figure>
+      <ul class="details">
+        <li><strong>Consent through elicitation.</strong> The server asks the person directly before anyone is contacted.</li>
+        <li><strong>Progress notifications.</strong> While Kavach waits for the real family member to answer, the assistant hears how long is left.</li>
+        <li><strong>Structured results.</strong> Every verdict comes back as typed data, so an assistant can act on it, not just read it.</li>
+        <li><strong>Hard spending cap.</strong> Bedrock calls stop at a fixed budget and fall back to the rules engine.</li>
+      </ul>
+    </section>
+
+    <!-- ============ proof ============ -->
+    <section class="proof" id="proof">
+      <h2>Measured, not claimed.</h2>
+      <p class="section-lede">107 labeled cases, written the way people actually describe these calls, including hard look-alikes: real bank fraud alerts, a niece calling from hospital after a real accident, scheduled power cuts. Rules were tuned on half; these numbers are from the half they never saw.</p>
+      <div class="results">
+        <div class="result"><p class="result-num">0%</p><p>of genuine messages wrongly flagged</p></div>
+        <div class="result"><p class="result-num">69%</p><p>of unseen scams flagged by the offline rules alone</p></div>
+        <div class="result"><p class="result-num">1 ms</p><p>to check a message, with no network needed</p></div>
       </div>
-    </aside>
+      <p class="proof-note">Rules never cry wolf but miss scams they haven't seen, which is why unclear cases go to Amazon Bedrock. The full evaluation, cases and protocol tests are in the repository.</p>
+    </section>
+
+    <!-- ============ open source ============ -->
+    <section class="oss">
+      <div>
+        <h2>The scam knowledge is free for anyone to use.</h2>
+        <p><code>kavach-scam-patterns</code> is published separately under the MIT license: 19 scam families from the US and India, 13 manipulation tactics, and for each one the plain-language fact that breaks it, written to be spoken to a 75-year-old.</p>
+      </div>
+      <a class="btn btn-ghost" href="https://github.com/vaidehi-snk/kavach/tree/main/packages/scam-patterns">Browse the package</a>
+    </section>
+
+    <section class="closing">
+      <p class="closing-line">See it catch a fake police officer, an IRS caller and a cloned grandson.</p>
+      <a class="btn btn-primary" href="/demo">Open the live demo</a>
+    </section>
   </main>
 
-  <!-- ============ Under the hood ============ -->
-  <section class="hood" aria-label="MCP protocol trace">
-    <div class="hood-head">
-      <h2>Under the hood</h2>
-      <p class="hood-sub">Live JSON-RPC between the Alexa+ host and the Kavach MCP server (Streamable HTTP)</p>
-      <div class="hood-meta" id="hood-meta"></div>
-      <button class="link-btn" id="reset">Clear demo history</button>
-    </div>
-    <ol class="trace" id="trace"></ol>
-  </section>
+  <footer class="foot">
+    <p>Kavach (कवच) means "armour". Built for the Amazon Developer "Build, Ship, Shape" hackathon, Alexa+ track.</p>
+    <p>Sources: FBI IC3 2024 Internet Crime Report; Indian Cybercrime Coordination Centre via The Indian Express. If you or someone you know has been targeted in India, call 1930 or visit cybercrime.gov.in. In the US, report at ic3.gov.</p>
+  </footer>
 
-  <script src="app.js" type="module"></script>
+  <script src="home.js" type="module"></script>
 </body>
 </html>

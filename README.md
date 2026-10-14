@@ -67,7 +67,7 @@ node eval/e2e.js                           # real MCP client ↔ server protocol
 
 ## See it working
 
-`npm start`, then open **http://localhost:8787** in Chrome or Edge.
+`npm start`, then open **http://localhost:8787** for the home page, or **http://localhost:8787/demo** for the live demo (Edge sounds best).
 
 The demo page plays the part of an Alexa+ device in Aaji's kitchen, with her son Rohan's phone beside it. Behind it runs a **real MCP client** (the "Alexa+ host") connected to the Kavach server over Streamable HTTP, exactly as Alexa+ connects to a self-hosted MCP server. Nothing on the page is faked:
 

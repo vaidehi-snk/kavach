@@ -225,7 +225,7 @@ export function createKavachServer() {
           c.stage = next;
           if (next === 'interrupt') {
             spoken = `${n}, stop. This call is a scam. ${r.pattern?.truth ?? ''} Hang up now. Don't press anything and don't send any money.`.replace(/\s+/g, ' ');
-            addEvent('check', { verdict: 'scam', scamType: r.pattern?.id || null, channel: 'live_call', excerpt: excerpt(c.text) });
+            addEvent('check', { verdict: 'scam', scamType: r.pattern?.id || null, channel: 'live_call' }); // no transcript stored
           }
         }
       } else {
