@@ -23,7 +23,7 @@ await c1.connect(t1);
 check('negotiated protocol 2025-11-25', t1.protocolVersion === '2025-11-25', t1.protocolVersion);
 
 const { tools } = await c1.listTools();
-check('5 tools listed', tools.length === 5, tools.map((t) => t.name).join(', '));
+check('6 tools listed', tools.length === 6, tools.map((t) => t.name).join(', '));
 check('check_message has outputSchema', Boolean(tools.find((t) => t.name === 'check_message')?.outputSchema));
 
 const scam = await c1.callTool({
@@ -47,6 +47,29 @@ const res = await c1.readResource({ uri: 'kavach://scam-patterns/digital_arrest'
 check('resource template read', JSON.parse(res.contents[0].text).id === 'digital_arrest');
 const prompts = await c1.listPrompts();
 check('2 prompts listed', prompts.prompts.length === 2);
+
+// Live call guardian: stages escalate listening -> caution -> interrupt, then summary + consent on end
+const callId = 'e2e-call-1';
+const lines = [
+  'Hello, am I speaking with Mrs. Shanta Kulkarni?',
+  'Madam, this is Inspector Vikram Singh from Mumbai Police cyber crime department.',
+  'A FedEx parcel in your name was seized at Mumbai airport. It contains five fake passports and drugs.',
+  'Your Aadhaar number is linked to a money laundering case, and an FIR has been registered against you.',
+];
+const stages = [];
+let interruptText = null;
+for (const segment of lines) {
+  const r = await c1.callTool({ name: 'call_guardian', arguments: { callId, segment } });
+  stages.push(r.structuredContent.stage);
+  if (r.structuredContent.stage === 'interrupt' && !interruptText) interruptText = r.structuredContent.spoken;
+}
+check('call stages escalate', stages.join(',') === 'listening,listening,caution,interrupt', stages.join(','));
+check('interrupt has spoken warning', /stop\. This call is a scam/.test(interruptText || ''));
+const before = elicited.length;
+const endR = await c1.callTool({ name: 'call_guardian', arguments: { callId, ended: true } });
+check('call end asks consent, then alerts', elicited.length === before + 1 && endR.structuredContent.familyAlerted.includes('Rohan'));
+const safeCall = await c1.callTool({ name: 'call_guardian', arguments: { callId: 'e2e-call-2', segment: 'Hi Aai, it is Rohan, I will be home by eight, keep dinner ready.' } });
+check('normal call stays listening', safeCall.structuredContent.stage === 'listening');
 
 // Client 2: no elicitation support -> server must not alert without explicit confirmation
 const c2 = new Client({ name: 'kavach-e2e-noelicit', version: '1.0.0' });

@@ -12,6 +12,7 @@ Kavach is a **self-hosted MCP server (spec 2025-11-25, Streamable HTTP)**, the o
 | Tool | What it's for |
 |---|---|
 | `check_message` | Describe a call, text, WhatsApp or email in your own words → verdict, scam type, red flags, the one fact that breaks the scam, and a sentence to speak aloud. If it's a scam, offers to alert family. |
+| `call_guardian` | **Live call protection.** On speaker, the host streams what the caller says; Kavach keeps a running risk score for the whole call and returns `listening` → `caution` → `interrupt`. On interrupt, Alexa speaks over the scammer. When the call ends, it offers to tell the family (elicitation). |
 | `verify_caller` | **"Is this really Rohan?"** A caller claims to be family. Kavach asks the *real* family member on their own phone (Yes / No buttons) and tells the person the truth. Defeats AI voice-clone scams. Streams MCP progress notifications while it waits. |
 | `alert_family` | Push / email alert to family members. **Never sends without the person's consent**, collected through MCP elicitation. |
 | `daily_checkin` | "I'm fine today" → logged for family; "not feeling well" → offers to ask family to call. |

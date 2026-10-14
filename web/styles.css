@@ -108,6 +108,37 @@ button, input { font: inherit; color: inherit; }
 .flags { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 4px 0 0; padding: 0; width: 100%; }
 .flags li { font-size: 14px; padding: 3px 10px; border-radius: 6px; border: 1px solid var(--line); color: var(--muted); }
 
+/* ---------------- live call guardian ---------------- */
+.call { min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.call-head { display: flex; align-items: center; gap: 10px; font-size: 15px; color: var(--muted); }
+.call-live { width: 10px; height: 10px; border-radius: 50%; background: var(--sindoor); animation: breathe 1.2s ease-in-out infinite; }
+.call-who { color: var(--ink); font-weight: 700; }
+.call-time { margin-left: auto; font-variant-numeric: tabular-nums; }
+.captions { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; min-height: 150px; justify-content: flex-end; }
+.captions li { font-size: 19px; line-height: 1.4; color: var(--muted); max-width: 46ch; animation: rise 0.3s ease-out; }
+.captions li::before { content: 'Caller: '; font-weight: 700; color: var(--ink); opacity: 0.6; }
+.captions li:last-child { color: var(--ink); }
+.captions li.cut::after { content: ' —'; color: var(--sindoor); font-weight: 700; }
+.captions li.kavach { color: var(--ink); font-weight: 700; }
+.captions li.kavach::before { content: 'Kavach: '; color: var(--sindoor); opacity: 1; }
+.meter { background: var(--night); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+.meter-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.meter-label { color: var(--muted); font-size: 14px; }
+.meter-stage { font-weight: 700; font-size: 15px; }
+.meter-track { height: 12px; border-radius: 999px; background: var(--night-3); overflow: hidden; }
+.meter-fill { height: 100%; width: 0%; border-radius: inherit; background: var(--tulsi); transition: width 0.6s cubic-bezier(.2,.8,.2,1), background 0.4s ease; }
+.meter[data-stage="caution"] .meter-fill { background: var(--saffron); }
+.meter[data-stage="caution"] .meter-stage { color: var(--saffron); }
+.meter[data-stage="interrupt"] .meter-fill { background: var(--sindoor); }
+.meter[data-stage="interrupt"] .meter-stage { color: var(--sindoor); }
+.call-flags { margin-top: 10px; }
+.call-flags li { animation: rise 0.3s ease-out; color: var(--ink); border-color: var(--saffron); }
+.call-end { align-self: flex-start; min-height: 44px; padding: 0 20px; border-radius: 999px; border: 0; background: var(--sindoor); color: #fff; font-weight: 700; cursor: pointer; }
+.device[data-mode="call"] .talk, .device[data-mode="call"] .ask, .device[data-mode="call"] .tries { display: none; }
+.tries-call { margin-top: 14px; }
+.chips button[data-kind="call"] { border-color: var(--sindoor); }
+.chips button[data-kind="mic"] { border-color: var(--listen); }
+
 /* consent: the big moment, readable from across a room */
 .consent {
   margin: 8px 0 4px; padding: 22px 24px; border-radius: 18px;

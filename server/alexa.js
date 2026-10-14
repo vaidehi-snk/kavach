@@ -258,6 +258,27 @@ export function mountAlexa(app, { mcpUrl }) {
     res.json({ ok: true });
   });
 
+  // Live call guardian: the device streams caller segments; we relay them to the MCP tool.
+  app.post('/api/call', async (req, res) => {
+    const { sid, callId, segment, ended } = req.body || {};
+    const s = sessions.get(sid);
+    if (!s?.client) return res.status(409).json({ error: 'Open the event stream first' });
+    if (!/^[\w-]{4,64}$/.test(String(callId))) return res.status(400).json({ error: 'Bad call id' });
+    try {
+      if (!ended) {
+        const r = await callTool(s, 'call_guardian', { callId, segment: String(segment || '').slice(0, 2000) });
+        return res.json(r.structured);
+      }
+      res.status(202).json({ ok: true });
+      const r = await callTool(s, 'call_guardian', { callId, ended: true });
+      if (r.structured?.spoken) emit(s, 'say', { text: r.structured.spoken, persona: 'aaji', call: true });
+      else emit(s, 'say', { text: '', persona: 'aaji', call: true });
+    } catch (err) {
+      console.error(err);
+      if (!res.headersSent) res.status(500).json({ error: String(err.message || err) });
+    }
+  });
+
   app.post('/api/verify-answer', (req, res) => {
     const { id, answer } = req.body || {};
     if (!answerVerification(String(id), answer === 'yes' ? 'yes' : 'no', 'app')) return res.status(404).json({ error: 'That question has already been answered' });

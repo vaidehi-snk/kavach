@@ -1,3 +1,5 @@
+import { SAMPLE_CALLS } from './calls.js';
+
 // Simulated Alexa+ device + family phone. All real work happens server-side through a live
 // MCP session; this page only renders events and handles voice in and out.
 const $ = (id) => document.getElementById(id);
@@ -32,44 +34,61 @@ setInterval(tick, 10_000);
 
 // ---------------------------------------------------------------- voice out
 let voice;
+let callerVoice;
 // Prefer neural ("Natural" / "Online") voices: Edge ships very natural Indian English ones.
 function pickVoice() {
   const vs = speechSynthesis?.getVoices?.() || [];
   const natural = (v) => /natural|online|neural/i.test(v.name);
   const indian = (v) => /en-IN/i.test(v.lang);
-  const female = (v) => /female|neerja|heera|veena|swara|kajal|aditi/i.test(v.name);
+  const female = (v) => /female|neerja|heera|veena|swara|kajal|aditi|aria|jenny|libby|sonia/i.test(v.name);
+  const male = (v) => /\bmale\b|prabhat|ravi|hemant|guy|davis|ryan|christopher|eric|david|mark|george/i.test(v.name) && !/female/i.test(v.name);
   voice =
     vs.find((v) => indian(v) && natural(v) && female(v)) ||
     vs.find((v) => indian(v) && natural(v)) ||
-    vs.find((v) => /^en-/i.test(v.lang) && natural(v)) ||
+    vs.find((v) => /^en-/i.test(v.lang) && natural(v) && female(v)) ||
     vs.find((v) => indian(v) && female(v)) ||
     vs.find((v) => indian(v)) ||
     vs.find((v) => /google uk english female/i.test(v.name)) ||
     vs.find((v) => /^en-(GB|US)/i.test(v.lang));
+  // The scammer on speakerphone gets a clearly different (male) voice.
+  callerVoice =
+    vs.find((v) => indian(v) && natural(v) && male(v)) ||
+    vs.find((v) => /^en-/i.test(v.lang) && natural(v) && male(v)) ||
+    vs.find((v) => /^en-/i.test(v.lang) && male(v)) ||
+    vs.find((v) => /google uk english male/i.test(v.name)) ||
+    vs.find((v) => /^en-/i.test(v.lang) && v !== voice);
 }
 if ('speechSynthesis' in window) {
   pickVoice();
   speechSynthesis.onvoiceschanged = pickVoice;
 }
 let spokenPrefix = '';
+let speechGen = 0;
+function stopSpeaking() {
+  speechGen++;
+  speechSynthesis?.cancel();
+}
 // Speak sentence by sentence with short pauses, and slow down slightly for warnings,
 // so it sounds like someone talking rather than reading a paragraph.
-async function speak(text) {
+async function speak(text, { as = voice, rate, pitch } = {}) {
   if (!('speechSynthesis' in window) || !text) return;
-  speechSynthesis.cancel();
+  stopSpeaking();
+  const gen = speechGen;
   const sentences = text.replace(/\s+/g, ' ').match(/[^.!?]+[.!?]*["']?/g) || [text];
   for (const [i, s] of sentences.entries()) {
     const line = s.trim();
     if (!line) continue;
+    if (gen !== speechGen) return;
     await new Promise((resolve) => {
       const u = new SpeechSynthesisUtterance(line);
-      if (voice) u.voice = voice;
-      const warning = /scam|hang up|do not|never/i.test(line);
-      u.rate = warning ? 0.9 : 0.97;
-      u.pitch = i === 0 ? 1.05 : 1;
+      if (as) u.voice = as;
+      const warning = /scam|hang up|do not|never|stop/i.test(line);
+      u.rate = rate ?? (warning ? 0.9 : 0.97);
+      u.pitch = pitch ?? (i === 0 ? 1.05 : 1);
       u.onend = u.onerror = () => resolve();
       speechSynthesis.speak(u);
     });
+    if (gen !== speechGen) return;
     await new Promise((r) => setTimeout(r, 180));
   }
 }
@@ -117,12 +136,13 @@ if (!Recognition) {
 }
 $('mic').addEventListener('click', () => {
   if (listeningFor) return rec?.stop();
-  speechSynthesis?.cancel();
+  stopSpeaking();
   listen('turn');
 });
 
 // ---------------------------------------------------------------- device state
 const RING_TEXT = {
+  call: 'Listening to the call',
   idle: 'Say "Alexa" and tell me what happened',
   thinking: 'Checking with Kavach…',
   scam: 'Scam warning',
@@ -154,6 +174,10 @@ let busy = false;
 async function ask(text, persona = 'aaji') {
   text = text.trim();
   if (!text || busy) return;
+  if (persona === 'aaji' && /\blisten (to|in on|in to) (this|the|my) (phone )?call\b/i.test(text)) {
+    $('say').value = '';
+    return listenToRealCall();
+  }
   busy = true;
   $('say').value = '';
   spokenPrefix = '';
@@ -187,6 +211,157 @@ $('chips').replaceChildren(
   }),
 );
 $('ask-digest').addEventListener('click', () => ask('How is Aai doing this week? Anything suspicious?', 'family'));
+
+
+// ---------------------------------------------------------------- live call guardian
+const call = { active: false, id: null, started: 0, timer: null, interrupted: false, source: null, rec: null, endedSent: false };
+const STAGE_TEXT = { listening: 'Kavach is listening', caution: 'Be careful', interrupt: 'Scam: stepping in' };
+
+function enterCallMode(who) {
+  Object.assign(call, { active: true, id: `call-${crypto.randomUUID().slice(0, 12)}`, started: Date.now(), interrupted: false, endedSent: false });
+  document.querySelector('.device').dataset.mode = 'call';
+  $('call').hidden = false;
+  $('consent').hidden = true;
+  $('captions').replaceChildren();
+  $('call-flags').replaceChildren();
+  $('call-who').textContent = who;
+  updateMeter({ risk: 0, stage: 'listening' });
+  setRing('call');
+  clearInterval(call.timer);
+  call.timer = setInterval(() => {
+    const s = Math.floor((Date.now() - call.started) / 1000);
+    $('call-time').textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  }, 500);
+}
+function exitCallMode() {
+  call.active = false;
+  clearInterval(call.timer);
+  try { call.rec?.abort(); } catch {}
+  call.rec = null;
+  document.querySelector('.device').dataset.mode = '';
+  $('call').hidden = true;
+}
+function addCaption(text, cls) {
+  const li = document.createElement('li');
+  li.textContent = text;
+  if (cls) li.className = cls;
+  const list = $('captions');
+  list.append(li);
+  while (list.children.length > 5) list.firstChild.remove();
+  return li;
+}
+function updateMeter({ risk, stage }) {
+  $('meter').dataset.stage = stage;
+  $('meter-fill').style.width = `${Math.max(3, Math.min(100, risk))}%`;
+  $('meter-stage').textContent = STAGE_TEXT[stage] || '';
+  if (stage === 'caution') setRing('suspicious', 'Be careful');
+}
+async function sendSegment(text) {
+  if (!call.active) return null;
+  const res = await fetch('/api/call', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sid, callId: call.id, segment: text }),
+  }).catch(() => null);
+  const r = res?.ok ? await res.json() : null;
+  if (!r || !call.active) return r;
+  updateMeter(r);
+  for (const f of r.newRedFlags) $('call-flags').append(Object.assign(document.createElement('li'), { textContent: f }));
+  if (r.stage === 'interrupt' && !call.interrupted) await interruptCall(r);
+  return r;
+}
+async function interruptCall(r) {
+  call.interrupted = true;
+  try { call.rec?.abort(); } catch {}
+  stopSpeaking(); // cut the caller off mid-sentence
+  $('captions').lastElementChild?.classList.add('cut');
+  addCaption(r.spoken, 'kavach');
+  setRing('scam', 'Scam: hang up');
+  await speak(r.spoken);
+  await endCall();
+}
+async function endCall() {
+  if (!call.active || call.endedSent) return;
+  call.endedSent = true;
+  try { call.rec?.abort(); } catch {}
+  stopSpeaking();
+  clearInterval(call.timer);
+  $('call-who').textContent = 'Call ended';
+  await fetch('/api/call', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sid, callId: call.id, ended: true }) }).catch(() => {});
+}
+$('call-end').addEventListener('click', endCall);
+
+async function playSampleCall(sc) {
+  if (call.active || busy) return;
+  enterCallMode(sc.caller);
+  for (const line of sc.lines) {
+    if (!call.active || call.interrupted) return;
+    addCaption(line);
+    const speaking = speak(line, { as: callerVoice, rate: 1.02, pitch: 0.92 });
+    // Send the words partway through the sentence, like a live transcript would.
+    await new Promise((r) => setTimeout(r, Math.min(1800, 300 + line.length * 22)));
+    if (!call.active || call.interrupted) return;
+    await sendSegment(line);
+    if (!call.active || call.interrupted) return;
+    await speaking;
+    await new Promise((r) => setTimeout(r, 350));
+  }
+  if (call.active && !call.interrupted) await endCall();
+}
+
+function listenToRealCall() {
+  if (call.active) return;
+  if (!Recognition) {
+    setReply('Listening to calls needs Chrome or Edge. Try one of the sample calls instead.');
+    return;
+  }
+  stopSpeaking();
+  enterCallMode('Call on speaker');
+  const r = new Recognition();
+  r.lang = 'en-IN';
+  r.continuous = true;
+  r.interimResults = true;
+  let live = null;
+  r.onresult = (e) => {
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const res = e.results[i];
+      const t = res[0].transcript.trim();
+      if (!t) continue;
+      live ??= addCaption('');
+      live.textContent = t;
+      if (res.isFinal) {
+        live = null;
+        sendSegment(t);
+      }
+    }
+  };
+  r.onend = () => {
+    if (call.active && call.rec === r && !call.interrupted && !call.endedSent) {
+      try { r.start(); } catch {}
+    }
+  };
+  call.rec = r;
+  r.start();
+}
+
+$('call-chips').replaceChildren(
+  ...SAMPLE_CALLS.map((sc) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.kind = 'call';
+    b.textContent = `Play a call: ${sc.label}`;
+    b.addEventListener('click', () => playSampleCall(sc));
+    return b;
+  }),
+  (() => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.kind = 'mic';
+    b.textContent = 'Listen with the microphone';
+    b.addEventListener('click', listenToRealCall);
+    return b;
+  })(),
+);
 
 // ---------------------------------------------------------------- consent (MCP elicitation)
 let consentId = null;
@@ -350,7 +525,7 @@ function connect() {
   es.addEventListener('elicit', async (e) => {
     const { id, message, title } = JSON.parse(e.data);
     consentId = id;
-    if (/looks like a scam/i.test(message)) setRing('scam');
+    if (/looks like a scam/i.test(message) || call.interrupted) setRing('scam');
     else setRing('idle', 'Waiting for your answer');
     const [said, question] = message.includes('\n\n') ? message.split('\n\n') : ['', message];
     if (said) {
@@ -365,8 +540,17 @@ function connect() {
     if (consentId === id) listen('consent');
   });
   es.addEventListener('say', async (e) => {
-    const { text, persona } = JSON.parse(e.data);
+    const { text, persona, call: fromCall } = JSON.parse(e.data);
     busy = false;
+    if (fromCall) {
+      exitCallMode();
+      $('heard').hidden = true;
+      $('verdict').hidden = true;
+      if (!text) return setRing('idle');
+      setRing('safe', 'Call over');
+      setReply(text);
+      return speak(text);
+    }
     if (persona === 'family') {
       if (!$('digest').hidden) $('digest-text').textContent = text;
       else showDigest({ scamsCaught: '–', checkins: '–', alertsSent: '–' }, text);

@@ -44,6 +44,24 @@
           <p class="ring-label" id="ring-label">Say "Alexa" and tell me what happened</p>
         </div>
 
+        <div class="call" id="call" hidden aria-live="polite">
+          <div class="call-head">
+            <span class="call-live" aria-hidden="true"></span>
+            <span class="call-who" id="call-who">Call on speaker</span>
+            <span class="call-time" id="call-time">0:00</span>
+          </div>
+          <ol class="captions" id="captions"></ol>
+          <div class="meter" id="meter" data-stage="listening">
+            <div class="meter-row">
+              <span class="meter-label">Scam risk</span>
+              <span class="meter-stage" id="meter-stage">Kavach is listening</span>
+            </div>
+            <div class="meter-track"><div class="meter-fill" id="meter-fill"></div></div>
+            <ul class="flags call-flags" id="call-flags"></ul>
+          </div>
+          <button type="button" class="call-end" id="call-end">End call</button>
+        </div>
+
         <div class="talk" aria-live="polite">
           <p class="heard" id="heard" hidden></p>
           <p class="reply" id="reply">Hello Aaji. If anyone calls or messages asking for money, codes or secrets, tell me about it first.</p>
@@ -72,6 +90,11 @@
         <input id="say" placeholder="Or type what the caller said…" maxlength="600">
         <button type="submit" class="send">Ask</button>
       </form>
+
+      <div class="tries tries-call" id="tries-call">
+        <span class="tries-label">Let Kavach listen to a call</span>
+        <div class="chips" id="call-chips"></div>
+      </div>
 
       <div class="tries">
         <span class="tries-label">Try a situation</span>
