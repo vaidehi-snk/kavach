@@ -5,7 +5,8 @@
   "scripts": {
     "start": "node server/index.js",
     "eval": "node eval/run.js",
-    "test": "node eval/run.js --split all"
+    "test": "node eval/run.js --split all",
+    "bedrock:check": "node scripts/bedrock-check.js"
   },
   "keywords": [],
   "author": "",

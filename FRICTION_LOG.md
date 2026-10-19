@@ -30,6 +30,24 @@ Submissions with friction logs can earn up to a 10% judging bonus. Add an entry 
 - **Workaround:** Free tier; Bedrock is opt-in and rules handle most cases for free.
 - **Suggestion:** Reserve a pool for late joiners, or give a per-participant Bedrock quota.
 
+### 4. Account verification silently blocked Bedrock for days
+- **Task:** Make the first Amazon Bedrock call from a new AWS account (Free plan, India).
+- **Steps:** Created an IAM user limited to `bedrock:InvokeModel` on `amazon.nova-lite-v1:0`, ran a Converse call from Node.js in us-east-1.
+- **Expected:** Either the call works, or the console clearly shows what is still pending.
+- **Actual:** `AccessDeniedException: Your account is currently being verified` three days after sign-up. The console home page looked normal; the pending step (email verification) was only visible on a separate "Complete your account setup" page.
+- **Severity:** High (blocked the hackathon's recommended AI service for days)
+- **Workaround:** Found and completed the pending step; verification then cleared.
+- **Suggestion:** Show a persistent banner in the console while the account has pending verification steps, and name the missing step in the API error message.
+
+### 5. "ValidationException: Operation not allowed" on every Bedrock call from an AWS India (AISPL) account
+- **Task:** Call Amazon Nova Lite through the Bedrock Converse API after verification.
+- **Steps:** Same IAM user and code as above, region us-east-1, single-region model ID (the Free plan doesn't allow cross-Region inference).
+- **Expected:** A model response, or an error that says what is not allowed and why.
+- **Actual:** `ValidationException: Operation not allowed`, with no further detail. Other developers on AISPL accounts report the same error on re:Post with no documented fix.
+- **Severity:** Critical for participants in India: the AWS Builder mini challenge depends on it.
+- **Workaround:** Opened AWS Support case 179216079300809. On Oct 19, AWS replied: *"We've reviewed your request and are unable to approve Bedrock model access for this account at this time. This decision was made as part of our standard account review process."* No reason given, no appeal path offered. Built the product so Bedrock is fully optional — `check_message`, `call_guardian`, `verify_caller` and every other tool run entirely on the offline rules engine, and `routeBedrock()` in `server/alexa.js` now catches a Bedrock failure and falls back to the offline router automatically rather than erroring out.
+- **Suggestion:** Document which Bedrock models are available to AISPL / Free plan accounts *before* sign-up, return a specific error code instead of a blanket denial, and give hackathon participants a fast, time-boxed review path given the submission deadline.
+
 <!-- Template:
 ### N. Title
 - **Task:**

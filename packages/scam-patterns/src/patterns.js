@@ -383,3 +383,9 @@ export const PATTERNS = [
     advice: 'Stop sending money. Talk to someone you trust before doing anything else.',
   },
 ];
+
+// ---------------- Spanish and Hindi ----------------
+import { ML_TACTICS, ML_PATTERNS, ML_LEGIT } from './multilingual.js';
+for (const [id, cues] of Object.entries(ML_TACTICS)) TACTICS[id].cues.push(...cues);
+for (const [id, cues] of Object.entries(ML_PATTERNS)) PATTERNS.find((p) => p.id === id).cues.push(...cues);
+LEGIT_CUES.cues.push(...ML_LEGIT);

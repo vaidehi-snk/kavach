@@ -1,6 +1,9 @@
 import { TACTICS, PATTERNS, LEGIT_CUES } from './patterns.js';
+import { detectLanguage } from './multilingual.js';
+import { PHRASES, PATTERN_TEXT, TACTIC_LABELS } from './translations.js';
 
-export { TACTICS, PATTERNS, LEGIT_CUES };
+export { TACTICS, PATTERNS, LEGIT_CUES, detectLanguage, PHRASES };
+export const LANGUAGES = ['en', 'es', 'hi'];
 
 const DEFAULT_PATTERN_WEIGHT = 0.28; // per matched cue; strongly diagnostic families set their own
 const PATTERN_CAP = 0.55;
@@ -61,8 +64,10 @@ export function analyze(text, opts = {}) {
   const verdict =
     score >= THRESHOLDS.scam ? 'scam' : score >= THRESHOLDS.suspicious ? 'suspicious' : 'likely_safe';
 
+  const lang = LANGUAGES.includes(opts.lang) ? opts.lang : detectLanguage(t);
   return {
     verdict,
+    lang,
     score: Number(score.toFixed(3)),
     pattern: best
       ? {
@@ -79,16 +84,28 @@ export function analyze(text, opts = {}) {
   };
 }
 
-/** A short sentence suitable for a voice assistant to speak aloud. */
-export function spokenSummary(result) {
+/** A scam family's name, truth and advice in the given language (falls back to English). */
+export function localizePattern(pattern, lang = 'en') {
+  if (!pattern) return null;
+  const tr = PATTERN_TEXT[lang]?.[pattern.id];
+  return tr ? { ...pattern, ...tr, lang } : { ...pattern, lang: 'en' };
+}
+
+/** Red-flag labels in the given language. */
+export function localizeFlags(redFlags, lang = 'en') {
+  return redFlags.map((f) => TACTIC_LABELS[lang]?.[f.id] || f.label.toLowerCase());
+}
+
+/** A short sentence suitable for a voice assistant to speak aloud, in the result's language. */
+export function spokenSummary(result, lang = result.lang || 'en') {
+  const P = PHRASES[lang] || PHRASES.en;
+  const pat = localizePattern(result.pattern, lang);
   if (result.verdict === 'scam') {
-    const truth = result.pattern ? ` ${result.pattern.truth}` : '';
-    const advice = result.pattern ? ` ${result.pattern.advice}` : ' Please hang up and do not send any money.';
-    return `This looks like a scam.${truth}${advice}`;
+    return [P.scam, pat?.truth, pat?.advice || P.fallbackAdvice].filter(Boolean).join(' ');
   }
   if (result.verdict === 'suspicious') {
-    const flags = result.redFlags.map((f) => f.label.toLowerCase()).slice(0, 2).join(' and ');
-    return `I'm not sure, but I'm worried. I noticed ${flags || 'some warning signs'}. Before you do anything, call back on a number you already trust.`;
+    const flags = localizeFlags(result.redFlags, lang).slice(0, 2).join(P.and);
+    return P.suspicious(flags);
   }
-  return "I don't see the usual warning signs of a scam. If anything still feels off, it's always okay to hang up and call back on a number you trust.";
+  return P.safe;
 }

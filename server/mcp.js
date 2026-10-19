@@ -5,11 +5,15 @@
 // Elicitation is used to get the person's explicit consent before anyone is contacted.
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { PATTERNS, analyze } from 'kavach-scam-patterns';
+import { PATTERNS, analyze, localizePattern, PHRASES, detectLanguage } from 'kavach-scam-patterns';
+
+const LANG = z.enum(['en', 'es', 'hi']);
+const langOf = (explicit, text) => explicit || (text ? detectLanguage(text) : null) || household().person.lang || 'en';
 import { assess } from './assess.js';
 import { household, addEvent, eventsSince, findFamily } from './store.js';
 import { notify } from './notify.js';
 import { requestVerification } from './verify.js';
+import { t } from './i18n.js';
 
 const DAY = 24 * 60 * 60 * 1000;
 const excerpt = (s, n = 140) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
@@ -72,11 +76,13 @@ export function createKavachServer() {
         text: z.string().min(3).describe('What the caller or message said, as described by the person'),
         channel: z.enum(['call', 'sms', 'whatsapp', 'email', 'video_call', 'in_person', 'other']).optional(),
         region: z.enum(['IN', 'US']).optional().describe('Defaults to the household region'),
+        language: z.enum(['en', 'es', 'hi']).optional().describe('Language to answer in. Detected from the text if omitted (English, Spanish, Hindi).'),
         offerAlert: z.boolean().optional().default(true).describe('Offer to alert family if this is a scam'),
       },
       outputSchema: {
         verdict: z.enum(['scam', 'suspicious', 'likely_safe']),
         score: z.number(),
+        language: z.enum(['en', 'es', 'hi']),
         scamType: z.string().nullable(),
         redFlags: z.array(z.string()),
         truth: z.string().nullable(),
@@ -87,9 +93,10 @@ export function createKavachServer() {
       },
       annotations: { readOnlyHint: false, openWorldHint: false, idempotentHint: false },
     },
-    async ({ text, channel, region, offerAlert }) => {
+    async ({ text, channel, region, language, offerAlert }) => {
       const hh = household();
-      const r = await assess(text, { region: region || hh.person.region });
+      const r = await assess(text, { region: region || hh.person.region, lang: language });
+      const P = PHRASES[r.lang] || PHRASES.en;
       addEvent('check', { verdict: r.verdict, scamType: r.pattern?.id || null, channel: channel || 'other', excerpt: excerpt(text) });
 
       let familyAlerted = [];
@@ -97,10 +104,10 @@ export function createKavachServer() {
       const impersonation = ['grandparent_emergency', 'voice_clone_family'].includes(r.pattern?.id) && r.verdict !== 'likely_safe';
       if (r.verdict === 'scam' && offerAlert !== false) {
         const family = findFamily();
-        const names = family.map((f) => f.name).join(' and ');
+        const names = family.map((f) => f.name).join(P.and);
         const ask = await confirmWithPerson(
           server,
-          `${r.spoken}\n\nShall I let ${names} know, so they can call you?`,
+          `${r.spoken}\n\n${P.askFamily(names)}`,
           `Tell ${names}`,
         );
         if (ask.confirmed) {
@@ -109,18 +116,19 @@ export function createKavachServer() {
             urgency: 'urgent',
           });
           familyAlerted = delivered.map((d) => d.to);
-          spoken += ` I've let ${familyAlerted.join(' and ')} know.`;
+          spoken += P.alerted(familyAlerted.join(P.and));
         } else if (!ask.supported) {
-          spoken += ` Would you like me to let ${names} know?`;
+          spoken += P.offerFamily(names);
         }
       }
 
-      if (impersonation && !familyAlerted.length) {
+      if (impersonation && !familyAlerted.length && r.lang === 'en') {
         spoken += ` If you're not sure, say "check with ${findFamily()[0]?.name || 'my family'}" and I'll ask them directly on their phone.`;
       }
       const structured = {
         verdict: r.verdict,
         score: r.score,
+        language: r.lang,
         scamType: r.pattern?.name ?? null,
         redFlags: r.redFlags.map((f) => f.label),
         truth: r.pattern?.truth ?? null,
@@ -224,7 +232,8 @@ export function createKavachServer() {
         if (rank[next] > rank[c.stage]) {
           c.stage = next;
           if (next === 'interrupt') {
-            spoken = `${n}, stop. This call is a scam. ${r.pattern?.truth ?? ''} Hang up now. Don't press anything and don't send any money.`.replace(/\s+/g, ' ');
+            const P = PHRASES[r.lang] || PHRASES.en;
+            spoken = P.interrupt(n, localizePattern(r.pattern, r.lang)?.truth ?? '').replace(/\s+/g, ' ');
             addEvent('check', { verdict: 'scam', scamType: r.pattern?.id || null, channel: 'live_call' }); // no transcript stored
           }
         }
@@ -235,8 +244,9 @@ export function createKavachServer() {
         addEvent('call', { verdict: r.verdict, scamType: r.pattern?.id || null, seconds, flags: [...c.flags] });
         if (wasScam) {
           const family = findFamily();
-          const names = family.map((f) => f.name).join(' and ');
-          const ask = await confirmWithPerson(server, `You did the right thing hanging up, ${n}. Shall I let ${names} know about this call?`, `Tell ${names}`);
+          const L = t(r.lang).call;
+          const names = family.map((f) => f.name).join((PHRASES[r.lang] || PHRASES.en).and);
+          const ask = await confirmWithPerson(server, L.endAsk(n, names), `Tell ${names}`);
           if (ask.confirmed) {
             const delivered = await sendAlert(family, {
               title: `Kavach stopped a scam call to ${n}`,
@@ -244,10 +254,10 @@ export function createKavachServer() {
               urgency: 'urgent',
             });
             familyAlerted = delivered.map((d) => d.to);
-            spoken = `I've let ${familyAlerted.join(' and ')} know. You're safe now.`;
-          } else spoken = ask.supported ? `Okay. You're safe now.` : `You're safe now. Would you like me to let ${names} know?`;
+            spoken = L.alerted(familyAlerted.join((PHRASES[r.lang] || PHRASES.en).and));
+          } else spoken = ask.supported ? L.safe : L.offer(names);
         } else {
-          spoken = r.verdict === 'suspicious' ? `That call had a few warning signs, ${n}. If they call again, let me listen in.` : null;
+          spoken = r.verdict === 'suspicious' ? t(r.lang).call.wary(n) : null;
         }
       }
 
@@ -269,6 +279,7 @@ export function createKavachServer() {
         claimedName: z.string().optional().describe('Who the caller says they are, e.g. "Rohan" or "my son"'),
         request: z.string().optional().describe('What the caller is asking for, in the person\'s words'),
         timeoutSeconds: z.number().int().min(10).max(120).default(45),
+        language: LANG.optional().describe('Language to answer in; detected from the request if omitted'),
       },
       outputSchema: {
         verified: z.enum(['confirmed', 'denied', 'no_answer']),
@@ -280,13 +291,14 @@ export function createKavachServer() {
       },
       annotations: { readOnlyHint: false, openWorldHint: true, idempotentHint: false },
     },
-    async ({ claimedName, request: rawRequest, timeoutSeconds }, extra) => {
+    async ({ claimedName, request: rawRequest, timeoutSeconds, language }, extra) => {
+      const V = t(langOf(language, rawRequest)).verify;
       const request = rawRequest?.replace(/\s+/g, ' ').trim().replace(/[.!?]+$/, '') || undefined;
       const hh = household();
       const member = findFamily(claimedName)[0] || (claimedName ? null : hh.family[0]);
       if (!member) {
         const known = hh.family.map((f) => f.name).join(', ');
-        const text = `${claimedName} isn't someone I know in your family (I know ${known}). Please be very careful: hang up and call your family on numbers you already have.`;
+        const text = V.unknown(claimedName, known);
         return { content: [{ type: 'text', text }], structuredContent: { verified: 'no_answer', familyMember: claimedName || '', answeredVia: 'none', waitedSeconds: 0, scamVerdict: null, spoken: text } };
       }
 
@@ -314,14 +326,14 @@ export function createKavachServer() {
       let verified, spoken;
       if (r.answer === 'no') {
         verified = 'denied';
-        spoken = `${hh.person.preferredName}, that is not ${n}. ${n} just told me he is not calling you. This is a scam, and the voice may be copied by a computer. Hang up now and do not send any money.`;
+        spoken = V.denied(hh.person.preferredName, n);
         await sendAlert([member], { title: `Kavach: someone is pretending to be you`, reason: `You told Kavach it's not you calling ${hh.person.preferredName}. Kavach told her to hang up${request ? `. The caller wanted: "${excerpt(request, 160)}"` : ''}.`, urgency: 'urgent' });
       } else if (r.answer === 'yes') {
         verified = 'confirmed';
-        spoken = `Good news, ${hh.person.preferredName}. ${n} confirmed on his own phone that it really is him calling.`;
+        spoken = V.confirmed(hh.person.preferredName, n);
       } else {
         verified = 'no_answer';
-        spoken = `${n} hasn't answered yet. Until he does, please don't send any money or share any codes. Hang up and call ${n} on the number saved in your phone.`;
+        spoken = V.no_answer(hh.person.preferredName, n);
       }
       addEvent('verify', { familyMember: n, verified, via: r.via, request: request ? excerpt(request) : undefined });
       const structured = { verified, familyMember: n, answeredVia: r.via, waitedSeconds: Math.round(r.waitedMs / 1000), scamVerdict: scam?.verdict ?? null, spoken };
@@ -339,27 +351,29 @@ export function createKavachServer() {
         'If they are not feeling well, offers to tell the family.',
       inputSchema: {
         feeling: z.enum(['good', 'okay', 'not_good']),
+        language: LANG.optional().describe('Language to answer in; detected from the note if omitted'),
         note: z.string().optional().describe('Anything they mentioned, in their words'),
       },
       annotations: { readOnlyHint: false, openWorldHint: false },
     },
-    async ({ feeling, note }) => {
+    async ({ feeling, note, language }) => {
+      const C = t(langOf(language, note)).checkin;
       const hh = household();
       addEvent('checkin', { feeling, note: note ? excerpt(note, 200) : undefined });
       let text =
         feeling === 'good'
-          ? `Lovely to hear, ${hh.person.preferredName}. I've noted it for the family.`
+          ? C.good(hh.person.preferredName)
           : feeling === 'okay'
-            ? `Thanks for telling me, ${hh.person.preferredName}. I've noted it.`
-            : `I'm sorry you're not feeling well, ${hh.person.preferredName}.`;
+            ? C.okay(hh.person.preferredName)
+            : C.not_good(hh.person.preferredName);
       if (feeling === 'not_good') {
         const family = findFamily();
         const names = family.map((f) => f.name).join(' and ');
-        const ask = await confirmWithPerson(server, `${text} Shall I ask ${names} to give you a call?`, `Ask ${names} to call`);
+        const ask = await confirmWithPerson(server, `${text} ${C.ask(names)}`, `Ask ${names} to call`);
         if (ask.confirmed) {
           await sendAlert(family, { reason: `${hh.person.preferredName} said she isn't feeling well today.${note ? ` She said: "${note}"` : ''}`, urgency: 'normal' });
-          text += ` I've asked ${names} to call you.`;
-        } else if (!ask.supported) text += ` Would you like me to ask ${names} to call you?`;
+          text += C.asked(names);
+        } else if (!ask.supported) text += C.offer(names);
       }
       return { content: [{ type: 'text', text }] };
     },

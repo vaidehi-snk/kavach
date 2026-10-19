@@ -15,7 +15,15 @@ import { ElicitRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { BedrockRuntimeClient, ConverseCommand } from '@aws-sdk/client-bedrock-runtime';
 import { alertBus } from './notify.js';
 import { answerVerification } from './verify.js';
-import { household, resetEvents } from './store.js';
+import { household, resetEvents, setHousehold } from './store.js';
+
+const fam = (id, name, relation) => ({ id, name, relation, ntfyTopic: '', email: '' });
+export const HOUSEHOLDS = {
+  'en-IN': { person: { name: 'Shanta', preferredName: 'Aaji', region: 'IN', lang: 'en', timezone: 'Asia/Kolkata' }, family: [fam('rohan', 'Rohan', 'son')] },
+  'hi-IN': { person: { name: 'Shanta', preferredName: 'आजी', region: 'IN', lang: 'hi', timezone: 'Asia/Kolkata' }, family: [fam('rohan', 'Rohan', 'son')] },
+  'en-US': { person: { name: 'Margaret', preferredName: 'Margaret', region: 'US', lang: 'en', timezone: 'America/New_York' }, family: [fam('david', 'David', 'son')] },
+  'es-US': { person: { name: 'Rosa', preferredName: 'Rosa', region: 'US', lang: 'es', timezone: 'America/Chicago' }, family: [fam('daniel', 'Daniel', 'son')] },
+};
 import { llmConfigured } from './assess.js';
 import { canSpend, record } from './spend.js';
 
@@ -105,12 +113,18 @@ async function callTool(s, name, args) {
 }
 
 // ------------------------------------------------------------------ offline intent router
+// Unicode-aware word boundaries so Spanish accents and Hindi (Devanagari) match.
+const B = '[\\p{L}\\p{M}\\p{N}]';
+const uw = (src) => new RegExp(`(?<!${B})(?:${src})(?!${B})`, 'iu');
 const FEELING = [
-  [/\b(not (feeling )?(well|good|great)|unwell|sick|dizzy|pain|fever|tired|weak|bp (is )?high|lonely|sad)\b/i, 'not_good'],
-  [/\b(okay|ok|alright|so so|not bad)\b/i, 'okay'],
-  [/\b(fine|good|great|well|happy|wonderful)\b/i, 'good'],
+  [uw("not (feeling )?(well|good|great)|unwell|sick|dizzy|pain|fever|tired|weak|bp (is )?high|lonely|sad|no me siento bien|me siento mal|mareada?o?|cansada?o?|enferma?o?|dolor|तबीयत (ठीक नहीं|खराब)|ठीक नहीं|चक्कर|बुखार|दर्द|कमज़ोरी"), 'not_good'],
+  [uw('okay|ok|alright|so so|not bad|regular|más o menos|ठीक-ठाक|ठीक ठाक'), 'okay'],
+  [uw('fine|good|great|well|happy|wonderful|bien|muy bien|contenta?o?|ठीक हूँ|ठीक हूं|अच्छी हूँ|अच्छा लग'), 'good'],
 ];
-const SCAMMY = /\b(call(ed)?|message|sms|text|whatsapp|email|said|says|told|asked|someone|man|lady|officer|link|otp|pay|money|transfer|police|bank|parcel|prize|won|arrest)\b/i;
+const GREETING = uw("good morning|good evening|i('m| am)\\b.*\\b(feel|feeling|fine|well|okay|good|tired|sick|unwell)|feeling|buenos días|buenas tardes|me siento|estoy (bien|mal|cansada|cansado)|सुप्रभात|नमस्ते|मैं ठीक|तबीयत|मेरी तबीयत");
+const SCAMMY = uw('call(ed)?|message|sms|text|whatsapp|email|said|says|told|asked|someone|man|lady|officer|link|otp|pay|money|transfer|police|bank|parcel|prize|won|arrest|llam[oó]|llamaron|mensaje|dinero|polic[ií]a|banco|c[oó]digo|premio|pagar|transferir|फ़ोन आया|फोन आया|मैसेज|पैसे|पुलिस|बैंक|ओटीपी|इनाम');
+const SENTENCES = /[^.!?।]+[.!?।]*/g;
+const CLAIM = uw("(says|said|claims?|claiming) (he|she|it) is|voice|sounds? (just |exactly )?like|dice que es|su voz|suena (igual|como)|कहता है कि|कह रहा है कि|आवाज़|आवाज");
 
 async function routeOffline(s, utterance, persona) {
   const stripped = utterance.replace(/^\s*(hey\s+)?alexa[,\s]*/i, '').trim();
@@ -122,22 +136,27 @@ async function routeOffline(s, utterance, persona) {
   }
   const fam = household().family;
   const famNames = fam.map((f) => f.name).join('|');
-  const verifyRe = new RegExp(`\\b(is (this|it|he|she) really|really (${famNames}|my son|my daughter|my grandson)|check with|verify|confirm with|ask (${famNames}|my son|my daughter)( if)?)\\b`, 'i');
+  const verifyRe = uw(
+    `is (this|it|he|she) really|really (${famNames}|my son|my daughter|my grandson)|check with|verify|confirm with|ask (${famNames}|my son|my daughter)( if)?` +
+      `|(es|será) (de verdad|realmente)|de verdad es|pregúntale a|preguntale a|confirma con|verifica con` +
+      `|क्या (यह|ये|वह) सच में|सच में (${famNames}|मेरा बेटा)|(${famNames}|बेटे) से पूछ|पक्का कर`,
+  );
   if (verifyRe.test(u)) {
-    const who = fam.find((f) => new RegExp(`\\b(${f.name}|${f.relation})\\b`, 'i').test(u));
+    const REL = { son: 'son|hijo|बेटा|बेटे', daughter: 'daughter|hija|बेटी', grandson: 'grandson|nieto|पोता' };
+    const who = fam.find((f) => uw(`${f.name}|${REL[f.relation] || f.relation}`).test(u));
     // What the caller wants = the sentences that aren't the "is it really him?" question,
     // or the last thing she asked Kavach to check ("check with Rohan" as a follow-up).
-    const rest = (u.match(/[^.!?]+[.!?]*/g) || []).filter((x) => !verifyRe.test(x) && !/\b(says|said|claims?|claiming) (he|she|it) is\b|\bvoice\b|\bsounds? (just |exactly )?like\b/i.test(x)).join(' ').trim();
+    const rest = (u.match(SENTENCES) || []).filter((x) => !verifyRe.test(x) && !CLAIM.test(x)).join(' ').trim();
     const request = rest.length > 12 ? rest : s.lastCheck;
     const r = await callTool(s, 'verify_caller', { claimedName: who?.name, ...(request ? { request } : {}), timeoutSeconds: Number(process.env.KAVACH_VERIFY_TIMEOUT_S || 45) });
     return r.structured?.spoken || r.text;
   }
-  const alertMatch = u.match(/\b(tell|call|message|inform|alert|let)\b.*\b(rohan|my son|son|family|my daughter)\b/i);
+  const alertMatch = u.match(uw(`(tell|call|message|inform|alert|let)\\b.*\\b(${famNames}|my son|son|family|my daughter)`));
   if (alertMatch && u.split(/\s+/).length < 16 && !SCAMMY.test(u.replace(alertMatch[0], ''))) {
-    const r = await callTool(s, 'alert_family', { reason: `Aaji asked Kavach to reach you: "${u}"`, urgency: 'normal' });
+    const r = await callTool(s, 'alert_family', { reason: `${household().person.preferredName} asked Kavach to reach you: "${u}"`, urgency: 'normal' });
     return r.text;
   }
-  const isGreetingOrFeeling = /\b(good morning|good evening|i('m| am)\b.*\b(feel|feeling|fine|well|okay|good|tired|sick|unwell)|feeling)\b/i.test(u);
+  const isGreetingOrFeeling = GREETING.test(u);
   if (isGreetingOrFeeling && !SCAMMY.test(u)) {
     const feeling = FEELING.find(([re]) => re.test(u))?.[1] || 'okay';
     const r = await callTool(s, 'daily_checkin', { feeling, note: u });
@@ -150,14 +169,14 @@ async function routeOffline(s, utterance, persona) {
 
 // ------------------------------------------------------------------ Bedrock agent
 let bedrock;
-const SYSTEM = `You are Alexa+, a warm voice assistant in the home of an older adult called Aaji. The Kavach skill is connected and gives you tools.
+const SYSTEM = () => `You are Alexa+, a warm voice assistant in the home of an older adult called ${household().person.preferredName}. The Kavach skill is connected and gives you tools.
 Rules:
 - If she describes ANY call, message, visitor or request involving money, codes, threats, prizes, police, banks or personal details, call check_message with her words. Then repeat the tool's "spoken" text calmly; do not add new facts.
 - If she says how she feels or greets you, call daily_checkin.
 - If a family member asks how she is doing, call family_digest.
-- If someone on the phone claims to be family and she asks whether it is really them, or says \"check with Rohan\", call verify_caller with claimedName and what the caller wants.
+- If someone on the phone claims to be family and she asks whether it is really them, or says \"check with ${household().family[0]?.name || 'my son'}\", call verify_caller with claimedName and what the caller wants.
 - If she asks you to tell or call family, call alert_family.
-- Answer in at most three short spoken sentences. No lists, no markdown.`;
+- Answer in the language she spoke, in at most three short spoken sentences. No lists, no markdown.`;
 
 function toolSpecs(tools) {
   return tools.map((t) => ({
@@ -165,48 +184,62 @@ function toolSpecs(tools) {
   }));
 }
 
+let bedrockDown = false; // once a Bedrock call fails hard (e.g. account-level block), stop retrying it this run
+
 async function routeBedrock(s, utterance, persona) {
+  if (bedrockDown) return routeOffline(s, utterance, persona);
   bedrock ??= new BedrockRuntimeClient({ region: process.env.AWS_REGION || 'us-east-1' });
-  const who = persona === 'family' ? 'Rohan (her son) asks' : 'Aaji says';
+  const hh = household();
+  const who = persona === 'family' ? `${hh.family[0]?.name} (her ${hh.family[0]?.relation}) asks` : `${hh.person.preferredName} says`;
   const messages = [...s.history.slice(-6), { role: 'user', content: [{ text: `${who}: ${utterance}` }] }];
-  for (let step = 0; step < 4; step++) {
-    const budget = canSpend(MODEL_ID);
-    if (!budget.ok) {
-      emit(s, 'note', { text: `${budget.reason}. Switching to the offline router.` });
-      return routeOffline(s, utterance, persona);
+  try {
+    for (let step = 0; step < 4; step++) {
+      const budget = canSpend(MODEL_ID);
+      if (!budget.ok) {
+        emit(s, 'note', { text: `${budget.reason}. Switching to the offline router.` });
+        return routeOffline(s, utterance, persona);
+      }
+      const out = await bedrock.send(
+        new ConverseCommand({
+          modelId: MODEL_ID,
+          system: [{ text: SYSTEM() }],
+          messages,
+          toolConfig: { tools: toolSpecs(s.tools) },
+          inferenceConfig: { maxTokens: 400, temperature: 0.2 },
+        }),
+      );
+      record(MODEL_ID, out.usage);
+      const msg = out.output.message;
+      messages.push(msg);
+      const uses = msg.content.filter((c) => c.toolUse);
+      if (out.stopReason !== 'tool_use' || !uses.length) {
+        const text = msg.content.map((c) => c.text || '').join(' ').trim();
+        s.history = messages.filter((m) => m.content.every((c) => c.text)).slice(-6);
+        return text;
+      }
+      const results = [];
+      for (const { toolUse } of uses) {
+        const r = await callTool(s, toolUse.name, toolUse.input || {});
+        results.push({
+          toolResult: {
+            toolUseId: toolUse.toolUseId,
+            content: [{ json: r.structured ?? { text: r.text } }],
+            status: r.isError ? 'error' : 'success',
+          },
+        });
+      }
+      messages.push({ role: 'user', content: results });
     }
-    const out = await bedrock.send(
-      new ConverseCommand({
-        modelId: MODEL_ID,
-        system: [{ text: SYSTEM }],
-        messages,
-        toolConfig: { tools: toolSpecs(s.tools) },
-        inferenceConfig: { maxTokens: 400, temperature: 0.2 },
-      }),
-    );
-    record(MODEL_ID, out.usage);
-    const msg = out.output.message;
-    messages.push(msg);
-    const uses = msg.content.filter((c) => c.toolUse);
-    if (out.stopReason !== 'tool_use' || !uses.length) {
-      const text = msg.content.map((c) => c.text || '').join(' ').trim();
-      s.history = messages.filter((m) => m.content.every((c) => c.text)).slice(-6);
-      return text;
-    }
-    const results = [];
-    for (const { toolUse } of uses) {
-      const r = await callTool(s, toolUse.name, toolUse.input || {});
-      results.push({
-        toolResult: {
-          toolUseId: toolUse.toolUseId,
-          content: [{ json: r.structured ?? { text: r.text } }],
-          status: r.isError ? 'error' : 'success',
-        },
-      });
-    }
-    messages.push({ role: 'user', content: results });
+    return "Sorry, I couldn't finish that. Please try again.";
+  } catch (err) {
+    // A Bedrock account/permission error (e.g. "ValidationException: Operation not allowed" on
+    // some AISPL accounts) is not recoverable mid-session. Fall back to the offline router for
+    // the rest of this run instead of surfacing a dead-end error on every single turn.
+    bedrockDown = true;
+    console.error('[kavach] Bedrock call failed, switching to the offline router for this run:', err.message || err);
+    emit(s, 'note', { text: 'Bedrock is unavailable right now, so Kavach is using its offline rules engine instead.' });
+    return routeOffline(s, utterance, persona);
   }
-  return "Sorry, I couldn't finish that. Please try again.";
 }
 
 // ------------------------------------------------------------------ HTTP routes
@@ -283,6 +316,15 @@ export function mountAlexa(app, { mcpUrl }) {
     const { id, answer } = req.body || {};
     if (!answerVerification(String(id), answer === 'yes' ? 'yes' : 'no', 'app')) return res.status(404).json({ error: 'That question has already been answered' });
     res.json({ ok: true });
+  });
+
+  // Demo households: switch who lives here, their language, and their family.
+  app.post('/api/household', (req, res) => {
+    const h = HOUSEHOLDS[req.body?.key];
+    if (!h) return res.status(400).json({ error: 'Unknown household' });
+    setHousehold(structuredClone(h));
+    for (const s of sessions.values()) s.history = [];
+    res.json({ ok: true, ...h });
   });
 
   app.post('/api/reset', (_req, res) => {

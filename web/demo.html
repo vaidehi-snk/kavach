@@ -27,10 +27,14 @@
   </header>
 
   <main class="stage">
-    <!-- ============ Aaji's device ============ -->
-    <section class="device" aria-label="Aaji's Alexa+ device (simulated)">
+    <!-- ============ the older adult's device ============ -->
+    <section class="device" aria-label="Simulated Alexa+ device">
       <div class="device-bar">
-        <span>Aaji's kitchen</span>
+        <span id="place">Kitchen</span>
+        <label class="household">
+          <span class="visually-hidden">Household</span>
+          <select id="household" aria-label="Choose a household"></select>
+        </label>
         <span id="clock"></span>
       </div>
 
@@ -64,7 +68,7 @@
 
         <div class="talk" aria-live="polite">
           <p class="heard" id="heard" hidden></p>
-          <p class="reply" id="reply">Hello Aaji. If anyone calls or messages asking for money, codes or secrets, tell me about it first.</p>
+          <p class="reply" id="reply"></p>
           <div class="verdict" id="verdict" hidden>
             <span class="verdict-chip" id="verdict-chip"></span>
             <span class="verdict-type" id="verdict-type"></span>
@@ -92,23 +96,23 @@
       </form>
 
       <div class="tries tries-call" id="tries-call">
-        <span class="tries-label">Let Kavach listen to a call</span>
+        <span class="tries-label" id="tries-call-label">Let Kavach listen to a call</span>
         <div class="chips" id="call-chips"></div>
       </div>
 
       <div class="tries">
-        <span class="tries-label">Try a situation</span>
+        <span class="tries-label" id="tries-label">Try a situation</span>
         <div class="chips" id="chips"></div>
       </div>
     </section>
 
     <!-- ============ Rohan's phone ============ -->
-    <aside class="phone" aria-label="Rohan's phone">
+    <aside class="phone" aria-label="Family member's phone" id="phone">
       <div class="phone-notch" aria-hidden="true"></div>
       <div class="phone-time" id="phone-time"></div>
       <div class="phone-date" id="phone-date"></div>
       <ol class="notes" id="notes" aria-live="polite">
-        <li class="notes-empty" id="notes-empty">No alerts. Kavach will tell you here if Aai needs you.</li>
+        <li class="notes-empty" id="notes-empty">No alerts yet.</li>
       </ol>
       <div class="phone-ask">
         <div class="digest" id="digest" hidden>
@@ -116,7 +120,7 @@
           <p class="digest-text" id="digest-text"></p>
           <dl class="digest-stats" id="digest-stats"></dl>
         </div>
-        <button class="phone-btn" id="ask-digest">How is Aai doing this week?</button>
+        <button class="phone-btn" id="ask-digest">How is she doing this week?</button>
       </div>
     </aside>
   </main>

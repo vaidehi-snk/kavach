@@ -29,6 +29,17 @@ Kavach is a **self-hosted MCP server (spec 2025-11-25, Streamable HTTP)**, the o
 - **Resource templates with completion** for the scam knowledge base.
 - **Stateful Streamable HTTP sessions**, required for server→client requests like elicitation. DNS-rebinding protection is on by default.
 
+## Speaks the person's language
+
+Kavach detects English, Spanish and Hindi automatically and answers in the same language: the verdict, the fact that breaks the scam, the advice, the consent question and the live-call interruption. Family alerts stay in the family's language. The demo has four households:
+
+| Household | Language | Sample live call |
+|---|---|---|
+| Margaret, Columbus, Ohio | English | Fake IRS agent |
+| Rosa, San Antonio, Texas | Spanish | The "grandson" in jail |
+| Aaji, Pune | English | Fake police "digital arrest" |
+| आजी, Pune | Hindi | नकली पुलिस "डिजिटल अरेस्ट" |
+
 ## How detection works
 
 ```
@@ -44,7 +55,7 @@ Amazon Bedrock (Converse API) sees the text + the red flags the rules found
 rules act as a floor: the model can raise concern, never clear an obvious scam
 ```
 
-The rule layer is published separately as an MIT-licensed package, **[`kavach-scam-patterns`](packages/scam-patterns)**: 19 scam families (US, India, global) and 13 manipulation tactics (urgency, secrecy, odd payment methods, code requests, remote-access apps…). Each family carries plain-language "truth" and "advice" lines written to be spoken to a 75-year-old.
+The rule layer is published separately as an MIT-licensed package, **[`kavach-scam-patterns`](packages/scam-patterns)**: 19 scam families (US, India, global), 13 manipulation tactics, warning signs in English, Spanish and Hindi (urgency, secrecy, odd payment methods, code requests, remote-access apps…). Each family carries plain-language "truth" and "advice" lines written to be spoken to a 75-year-old.
 
 ## Measured, not claimed
 
@@ -54,9 +65,10 @@ The rule layer is published separately as an MIT-licensed package, **[`kavach-sc
 |---|---|---|---|---|
 | Rules only | dev (tuned) | 100% | 90.9% | 0% |
 | **Rules only** | **holdout (unseen)** | **69.2%** | **50.0%** | **0%** |
-| Rules + Bedrock | holdout | *run `npm run eval -- --mode hybrid`* | | |
+| **Rules only** | **Spanish + Hindi (24 cases, written after the rules, not used for tuning)** | **91.7%** | **66.7%** | **0%** called scam (1 of 12 marked "worth a second look") |
+| Rules + Bedrock | holdout | *not measurable — see below* | | |
 
-The holdout gap is the point: hand-written rules generalise poorly, which is why Kavach pairs them with a model. Rules are kept because they're instant, free, explainable and work offline. They never cried wolf on a genuine message.
+The holdout gap is the point: hand-written rules generalise poorly, which is why Kavach is designed to pair them with a model (`npm run eval -- --mode hybrid`). On this AWS account, Bedrock model access was denied after a support review (see [FRICTION_LOG.md](FRICTION_LOG.md) #5), so the hybrid number couldn't be measured — the code path is built and tested (`routeBedrock()` falls back to the rules engine automatically if a Bedrock call fails), but there's no live model behind it here. Rules are kept as the floor regardless, because they're instant, free, explainable and work offline. They never cried wolf on a genuine message.
 
 ```bash
 npm run eval                               # rules, holdout split
@@ -86,6 +98,8 @@ npm install
 npm start                       # http://127.0.0.1:8787/mcp
 node eval/e2e.js                # protocol checks
 node eval/e2e-verify.js         # verification: denied / confirmed / no answer
+node eval/e2e-languages.js      # Spanish + Hindi through the MCP server
+npm run eval -- --split multilingual
 ```
 
 Optional configuration (environment variables):

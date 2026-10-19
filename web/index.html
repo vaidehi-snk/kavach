@@ -36,7 +36,7 @@
           <a class="btn btn-primary" href="/demo">Watch it stop a scam call</a>
           <a class="btn btn-ghost" href="https://github.com/vaidehi-snk/kavach">Read the code</a>
         </div>
-        <p class="hero-note">Open source. Runs as a self-hosted MCP server, the standard Alexa+ uses for integrations.</p>
+        <p class="hero-note">Speaks English, Spanish and Hindi. Open source. Runs as a self-hosted MCP server, the standard Alexa+ uses for integrations.</p>
       </div>
 
       <figure class="replay" id="replay" aria-label="Example: Kavach interrupting a fake police call">
@@ -99,7 +99,7 @@
         </article>
         <article class="cap">
           <h3>Checks anything she's told</h3>
-          <p>Describe a text, WhatsApp, email or caller in your own words. Kavach names the scam, says the one fact that breaks it, and what to do next.</p>
+          <p>Describe a text, WhatsApp, email or caller in your own words, in English, Spanish or Hindi. Kavach names the scam, says the one fact that breaks it, and what to do next, in the same language.</p>
           <blockquote>"Electricity companies never ask you to call a personal mobile number."</blockquote>
         </article>
         <article class="cap">
@@ -174,22 +174,22 @@
       <div class="results">
         <div class="result"><p class="result-num">0%</p><p>of genuine messages wrongly flagged</p></div>
         <div class="result"><p class="result-num">69%</p><p>of unseen scams flagged by the offline rules alone</p></div>
-        <div class="result"><p class="result-num">1 ms</p><p>to check a message, with no network needed</p></div>
+        <div class="result"><p class="result-num">92%</p><p>of Spanish and Hindi scams flagged, on a separate untuned set</p></div>
       </div>
-      <p class="proof-note">Rules never cry wolf but miss scams they haven't seen, which is why unclear cases go to Amazon Bedrock. The full evaluation, cases and protocol tests are in the repository.</p>
+      <p class="proof-note">Every check takes about a millisecond and needs no network. Rules never cry wolf but miss scams they haven't seen, which is why unclear cases go to Amazon Bedrock. The full evaluation, cases and protocol tests are in the repository.</p>
     </section>
 
     <!-- ============ open source ============ -->
     <section class="oss">
       <div>
         <h2>The scam knowledge is free for anyone to use.</h2>
-        <p><code>kavach-scam-patterns</code> is published separately under the MIT license: 19 scam families from the US and India, 13 manipulation tactics, and for each one the plain-language fact that breaks it, written to be spoken to a 75-year-old.</p>
+        <p><code>kavach-scam-patterns</code> is published separately under the MIT license: 19 scam families from the US and India, 13 manipulation tactics, warning signs in English, Spanish and Hindi, and for each scam the plain-language fact that breaks it, written to be spoken to a 75-year-old in their own language.</p>
       </div>
       <a class="btn btn-ghost" href="https://github.com/vaidehi-snk/kavach/tree/main/packages/scam-patterns">Browse the package</a>
     </section>
 
     <section class="closing">
-      <p class="closing-line">See it catch a fake police officer, an IRS caller and a cloned grandson.</p>
+      <p class="closing-line">See it catch a fake IRS agent in Ohio, a "nieto" in Texas, and a fake police officer in Pune.</p>
       <a class="btn btn-primary" href="/demo">Open the live demo</a>
     </section>
   </main>

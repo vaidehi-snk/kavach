@@ -6,7 +6,9 @@
 //             (fast + free); otherwise ask Bedrock. Rules act as a floor: the LLM can raise
 //             concern but cannot clear a message the rules call a clear scam.
 // If Bedrock is not configured or fails, we fall back to rules and say so.
-import { analyze, spokenSummary, PATTERNS } from 'kavach-scam-patterns';
+import { analyze, spokenSummary, localizePattern, PATTERNS, PHRASES } from 'kavach-scam-patterns';
+
+const LANG_NAME = { en: 'English', es: 'Spanish', hi: 'Hindi' };
 import { BedrockRuntimeClient, ConverseCommand } from '@aws-sdk/client-bedrock-runtime';
 import { canSpend, record } from './spend.js';
 
@@ -38,9 +40,9 @@ function parseJson(text) {
   return j;
 }
 
-export async function askLlm(text, rules) {
+export async function askLlm(text, rules, lang = rules.lang || 'en') {
   const found = rules.redFlags.map((f) => f.label).join('; ') || 'none';
-  const user = `Message or call description:\n"""${text.slice(0, 4000)}"""\n\nRule engine warning signs: ${found}\nRule engine best match: ${rules.pattern?.name || 'none'} (score ${rules.score})`;
+  const user = `Message or call description:\n"""${text.slice(0, 4000)}"""\n\nRule engine warning signs: ${found}\nRule engine best match: ${rules.pattern?.name || 'none'} (score ${rules.score})\nWrite "reason" and "advice" in ${LANG_NAME[lang] || 'English'}.`;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), LLM_TIMEOUT_MS);
   try {
@@ -67,8 +69,10 @@ export async function askLlm(text, rules) {
  */
 export async function assess(text, opts = {}) {
   const mode = opts.mode || process.env.KAVACH_MODE || 'hybrid';
-  const rules = analyze(text, { region: opts.region });
-  const base = { ...rules, engine: 'rules', spoken: spokenSummary(rules) };
+  const rules = analyze(text, { region: opts.region, lang: opts.lang });
+  const lang = rules.lang;
+  const P = PHRASES[lang] || PHRASES.en;
+  const base = { ...rules, pattern: localizePattern(rules.pattern, lang), engine: 'rules', spoken: spokenSummary(rules) };
 
   if (mode === 'rules' || !llmConfigured()) {
     return { ...base, llmNote: mode === 'rules' ? undefined : 'Bedrock not configured; rules only' };
@@ -80,7 +84,7 @@ export async function assess(text, opts = {}) {
 
   let llm;
   try {
-    llm = await askLlm(text, rules);
+    llm = await askLlm(text, rules, lang);
   } catch (err) {
     return { ...base, engine: 'rules (llm failed)', llmNote: String(err.message || err) };
   }
@@ -101,12 +105,14 @@ export async function assess(text, opts = {}) {
     engine: mode === 'llm' ? 'bedrock' : 'rules + bedrock',
     llm: { verdict: llm.verdict, confidence: llm.confidence, reason: llm.reason, model: llm.model },
   };
-  const truth = pattern?.truth && verdict === 'scam' ? ` ${pattern.truth}` : '';
+  const local = localizePattern(pattern, lang);
+  result.pattern = local;
+  const truth = local?.truth && verdict === 'scam' ? ` ${local.truth}` : '';
   result.spoken =
     verdict === 'scam'
-      ? `This looks like a scam. ${llm.reason}${truth} ${llm.advice || pattern?.advice || 'Please hang up and do not send any money.'}`.replace(/\s+/g, ' ')
+      ? `${P.scam} ${llm.reason}${truth} ${llm.advice || local?.advice || P.fallbackAdvice}`.replace(/\s+/g, ' ')
       : verdict === 'suspicious'
-        ? `I'm worried about this. ${llm.reason} ${llm.advice || 'Call back on a number you already trust before doing anything.'}`
+        ? `${llm.reason} ${llm.advice || P.suspicious('')}`
         : spokenSummary({ ...rules, verdict: 'likely_safe' });
   return result;
 }

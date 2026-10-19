@@ -1,4 +1,15 @@
 import { SAMPLE_CALLS } from './calls.js';
+import { PERSONAS, DEFAULT_PERSONA } from './personas.js';
+
+let personaKey = (() => {
+  try {
+    const k = localStorage.getItem('kavach-household');
+    return PERSONAS[k] ? k : DEFAULT_PERSONA;
+  } catch {
+    return DEFAULT_PERSONA;
+  }
+})();
+const persona = () => PERSONAS[personaKey];
 
 // Simulated Alexa+ device + family phone. All real work happens server-side through a live
 // MCP session; this page only renders events and handles voice in and out.
@@ -11,16 +22,7 @@ const sid = (() => {
   }
 })();
 
-const SCENARIOS = [
-  { label: '"Digital arrest" video call', text: 'Alexa, a man from CBI called on video. He says a parcel in my name had drugs, I am under digital arrest, and I must not tell anyone.' },
-  { label: 'Grandson needs bail', text: 'Alexa, someone who sounded like my grandson called. He is in jail after an accident and needs bail money in gift cards today. He said do not tell his parents.' },
-  { label: 'Electricity cut-off SMS', text: 'Alexa, I got a message: your electricity power will be disconnected tonight at 9.30 pm because your previous month bill was not updated. Immediately contact our electricity officer.' },
-  { label: 'Bank asks for OTP', text: 'Alexa, a man from the bank says my KYC has expired and my account will be frozen. He says I will get an OTP and I should read it to him.' },
-  { label: 'Is this really Rohan?', text: "Alexa, someone on the phone says he is Rohan. His voice sounds just like him. He says he had an accident and needs 50,000 rupees on GPay right now. Is this really Rohan?" },
-  { label: 'Rohan calls about dinner', text: 'Alexa, Rohan called from his usual number. He will be home by eight and wants dal for dinner.', kind: 'safe' },
-  { label: 'Good morning check-in', text: 'Good morning Alexa, I am feeling fine today. I went for my walk.', kind: 'safe' },
-  { label: 'Not feeling well', text: 'Alexa, I am not feeling well today, a little dizzy.', kind: 'safe' },
-];
+
 
 // ---------------------------------------------------------------- clock
 function tick() {
@@ -38,6 +40,17 @@ let callerVoice;
 // Prefer neural ("Natural" / "Online") voices: Edge ships very natural Indian English ones.
 function pickVoice() {
   const vs = speechSynthesis?.getVoices?.() || [];
+  const p = persona();
+  if (p.speech !== 'en-IN') {
+    const inLang = (v) => p.voiceLang.test(v.lang) || (p.voiceFallback && p.voiceFallback.test(v.lang));
+    const nat = (v) => /natural|online|neural/i.test(v.name);
+    const fem = (v) => /female|aria|jenny|paloma|dalia|elena|swara|kajal|neerja|sabela|ximena|michelle|ana/i.test(v.name) && !/\bmale\b/i.test(v.name.replace(/female/i, ''));
+    const mal = (v) => /\bmale\b|guy|davis|andrew|brian|jorge|alonso|madhur|tom|roger|eric|christopher/i.test(v.name) && !/female/i.test(v.name);
+    const pool = vs.filter(inLang);
+    voice = pool.find((v) => nat(v) && fem(v)) || pool.find(nat) || pool.find(fem) || pool[0] || vs.find((v) => /^en-US/i.test(v.lang));
+    callerVoice = pool.find((v) => nat(v) && mal(v)) || pool.find(mal) || pool.find((v) => v !== voice) || voice;
+    return;
+  }
   const natural = (v) => /natural|online|neural/i.test(v.name);
   const indian = (v) => /en-IN/i.test(v.lang);
   const female = (v) => /female|neerja|heera|veena|swara|kajal|aditi|aria|jenny|libby|sonia/i.test(v.name);
@@ -101,7 +114,7 @@ function listen(purpose) {
   if (!Recognition) return;
   rec?.abort();
   rec = new Recognition();
-  rec.lang = 'en-IN';
+  rec.lang = persona().speech;
   rec.interimResults = true;
   rec.maxAlternatives = 1;
   listeningFor = purpose;
@@ -142,8 +155,10 @@ $('mic').addEventListener('click', () => {
 
 // ---------------------------------------------------------------- device state
 const RING_TEXT = {
+  get idle() {
+    return persona().ui.idle;
+  },
   call: 'Listening to the call',
-  idle: 'Say "Alexa" and tell me what happened',
   thinking: 'Checking with Kavach…',
   scam: 'Scam warning',
   suspicious: 'Be careful',
@@ -174,7 +189,7 @@ let busy = false;
 async function ask(text, persona = 'aaji') {
   text = text.trim();
   if (!text || busy) return;
-  if (persona === 'aaji' && /\blisten (to|in on|in to) (this|the|my) (phone )?call\b/i.test(text)) {
+  if (persona === 'aaji' && /\blisten (to|in on|in to) (this|the|my) (phone )?call\b|escucha(r)? (esta|la) llamada|यह कॉल सुन|कॉल सुनो/i.test(text)) {
     $('say').value = '';
     return listenToRealCall();
   }
@@ -200,23 +215,25 @@ $('ask').addEventListener('submit', (e) => {
   e.preventDefault();
   ask($('say').value);
 });
-$('chips').replaceChildren(
-  ...SCENARIOS.map((s) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.textContent = s.label;
-    if (s.kind) b.dataset.kind = s.kind;
-    b.addEventListener('click', () => ask(s.text));
-    return b;
-  }),
-);
+function renderScenarioChips() {
+  $('chips').replaceChildren(
+    ...persona().scenarios.map((sc) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = sc.label;
+      if (sc.kind) b.dataset.kind = sc.kind;
+      b.addEventListener('click', () => ask(sc.text));
+      return b;
+    }),
+  );
+}
 $('digest-close').addEventListener('click', () => ($('digest').hidden = true));
-$('ask-digest').addEventListener('click', () => ask('How is Aai doing this week? Anything suspicious?', 'family'));
+$('ask-digest').addEventListener('click', () => ask(`How is ${persona().momWord} doing this week? Anything suspicious?`, 'family'));
 
 
 // ---------------------------------------------------------------- live call guardian
 const call = { active: false, id: null, started: 0, timer: null, interrupted: false, source: null, rec: null, endedSent: false };
-const STAGE_TEXT = { listening: 'Kavach is listening', caution: 'Be careful', interrupt: 'Scam: stepping in' };
+const STAGE_TEXT = new Proxy({}, { get: (_, k) => persona().ui.stage[k] });
 
 function enterCallMode(who) {
   Object.assign(call, { active: true, id: `call-${crypto.randomUUID().slice(0, 12)}`, started: Date.now(), interrupted: false, endedSent: false });
@@ -287,7 +304,7 @@ async function endCall() {
   try { call.rec?.abort(); } catch {}
   stopSpeaking();
   clearInterval(call.timer);
-  $('call-who').textContent = 'Call ended';
+  $('call-who').textContent = persona().ui.callEnded;
   await fetch('/api/call', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sid, callId: call.id, ended: true }) }).catch(() => {});
 }
 $('call-end').addEventListener('click', endCall);
@@ -317,9 +334,9 @@ function listenToRealCall() {
     return;
   }
   stopSpeaking();
-  enterCallMode('Call on speaker');
+  enterCallMode(persona().ui.callOn);
   const r = new Recognition();
-  r.lang = 'en-IN';
+  r.lang = persona().speech;
   r.continuous = true;
   r.interimResults = true;
   let live = null;
@@ -345,12 +362,13 @@ function listenToRealCall() {
   r.start();
 }
 
+function renderCallChips() {
 $('call-chips').replaceChildren(
-  ...SAMPLE_CALLS.map((sc) => {
+  ...SAMPLE_CALLS.filter((sc) => sc.households.includes(personaKey)).map((sc) => {
     const b = document.createElement('button');
     b.type = 'button';
     b.dataset.kind = 'call';
-    b.textContent = `Play a call: ${sc.label}`;
+    b.textContent = `${persona().ui.play}: ${sc.label}`;
     b.addEventListener('click', () => playSampleCall(sc));
     return b;
   }),
@@ -358,11 +376,12 @@ $('call-chips').replaceChildren(
     const b = document.createElement('button');
     b.type = 'button';
     b.dataset.kind = 'mic';
-    b.textContent = 'Listen with the microphone';
+    b.textContent = persona().ui.mic;
     b.addEventListener('click', listenToRealCall);
     return b;
   })(),
 );
+}
 
 // ---------------------------------------------------------------- consent (MCP elicitation)
 let consentId = null;
@@ -534,7 +553,9 @@ function connect() {
       spokenPrefix = said.trim();
     }
     $('consent-q').textContent = question;
-    $('consent-yes').textContent = title.replace(/^Tell /, 'Yes, tell ').replace(/^Ask /, 'Yes, ask ').replace(/^Send /, 'Yes, send ');
+    const fam = title.replace(/^(Tell|Ask|Send( to)?) /, '').replace(/ to call$/, '');
+    $('consent-yes').textContent = /^Tell/.test(title) ? persona().ui.yes(fam) : persona().lang === 'en' || persona().speech.startsWith('en') ? title.replace(/^Ask /, 'Yes, ask ').replace(/^Send /, 'Yes, send ') : persona().ui.yes(fam);
+    $('consent-no').textContent = persona().ui.no;
     $('consent').hidden = false;
     $('consent-yes').focus({ preventScroll: true });
     await speak(`${said} ${question}`.trim());
@@ -569,7 +590,7 @@ function connect() {
     const v = JSON.parse(e.data);
     showVerifyCard(v);
     setRing('thinking', `Asking ${v.to} on his phone…`);
-    const line = `I'm asking ${v.to} on his own phone right now. Please stay with me, and don't send anything yet.`;
+    const line = persona().ui.asking(v.to);
     setReply(line);
     speak(line);
   });
@@ -584,15 +605,55 @@ function connect() {
   });
   es.addEventListener('note', (e) => addTrace({ dir: 'in', msg: { method: 'note', params: JSON.parse(e.data) } }));
 }
+// ---------------------------------------------------------------- households
+const emptyNote = () => `No alerts. Kavach will tell you here if ${persona().momWord} needs you.`;
+function applyPersona() {
+  const p = persona();
+  document.documentElement.lang = p.speech;
+  $('place').textContent = p.place;
+  $('say').placeholder = p.ui.placeholder;
+  $('tries-label').textContent = p.ui.tries;
+  $('tries-call-label').textContent = p.ui.triesCall;
+  $('consent-hint').textContent = p.ui.consentHint;
+  $('ask-digest').textContent = `How is ${p.momWord} doing this week?`;
+  $('phone').setAttribute('aria-label', `${p.son}'s phone`);
+  const empty = $('notes-empty');
+  if (empty) empty.textContent = emptyNote();
+  document.documentElement.style.setProperty('--heard-name', JSON.stringify(`${p.ui.heard}: `));
+  setReply(p.ui.greeting);
+  $('heard').hidden = true;
+  $('verdict').hidden = true;
+  setRing('idle');
+  renderScenarioChips();
+  renderCallChips();
+  pickVoice();
+}
+async function switchHousehold(key) {
+  if (!PERSONAS[key]) return;
+  personaKey = key;
+  try {
+    localStorage.setItem('kavach-household', key);
+  } catch {}
+  stopSpeaking();
+  await fetch('/api/household', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key }) }).catch(() => {});
+  applyPersona();
+}
+$('household').replaceChildren(
+  ...Object.entries(PERSONAS).map(([k, p]) => Object.assign(document.createElement('option'), { value: k, textContent: p.label })),
+);
+$('household').value = personaKey;
+$('household').addEventListener('change', (e) => switchHousehold(e.target.value));
+switchHousehold(personaKey);
+
 connect();
 
 $('reset').addEventListener('click', async () => {
   await fetch('/api/reset', { method: 'POST' });
   $('trace').replaceChildren();
-  $('notes').replaceChildren(Object.assign(document.createElement('li'), { className: 'notes-empty', id: 'notes-empty', textContent: 'No alerts. Kavach will tell you here if Aai needs you.' }));
+  $('notes').replaceChildren(Object.assign(document.createElement('li'), { className: 'notes-empty', id: 'notes-empty', textContent: emptyNote() }));
   $('digest').hidden = true;
   $('verdict').hidden = true;
   $('heard').hidden = true;
-  $('reply').textContent = 'Hello Aaji. If anyone calls or messages asking for money, codes or secrets, tell me about it first.';
+  setReply(persona().ui.greeting);
   setRing('idle');
 });

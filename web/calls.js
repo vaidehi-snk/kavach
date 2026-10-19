@@ -3,7 +3,9 @@
 export const SAMPLE_CALLS = [
   {
     id: 'digital-arrest',
-    label: 'Fake police "digital arrest" (India)',
+    households: ['en-IN'],
+    lang: 'en',
+    label: 'Fake police "digital arrest"',
     caller: 'Unknown +91 89XXX XXX21',
     lines: [
       'Hello, am I speaking with Mrs. Shanta Kulkarni?',
@@ -16,8 +18,26 @@ export const SAMPLE_CALLS = [
     ],
   },
   {
+    id: 'digital-arrest-hi',
+    households: ['hi-IN'],
+    lang: 'hi',
+    label: 'नकली पुलिस "डिजिटल अरेस्ट"',
+    caller: 'अनजान नंबर +91 89XXX XXX21',
+    lines: [
+      'हैलो, क्या मैं शांता कुलकर्णी जी से बात कर रहा हूँ?',
+      'मैडम, मैं मुंबई पुलिस साइबर क्राइम से इंस्पेक्टर विक्रम सिंह बोल रहा हूँ।',
+      'आपके नाम का एक कूरियर पार्सल एयरपोर्ट पर पकड़ा गया है, उसमें नकली पासपोर्ट और ड्रग्स हैं।',
+      'आपके आधार से मनी लॉन्ड्रिंग हुई है और आपके खिलाफ एफआईआर दर्ज हो चुकी है।',
+      'यह गोपनीय जांच है। अपने बेटे को या घर में किसी को मत बताना।',
+      'आपको वीडियो कॉल पर ही रहना है। जांच पूरी होने तक आप डिजिटल अरेस्ट में हैं।',
+      'बेगुनाही साबित करने के लिए अपनी सारी जमा राशि आरबीआई के सुरक्षित खाते में ट्रांसफर कीजिए।',
+    ],
+  },
+  {
     id: 'irs',
-    label: 'Fake IRS agent (US)',
+    households: ['en-US'],
+    lang: 'en',
+    label: 'Fake IRS agent',
     caller: 'Unknown +1 (202) XXX-0148',
     lines: [
       'Hello, is this Margaret Collins?',
@@ -26,6 +46,20 @@ export const SAMPLE_CALLS = [
       'A warrant has been issued for your arrest, and local police will come to your house today.',
       'You must stay on the line with me. Do not hang up and do not tell your family about this.',
       'You can clear this right now by paying with Target gift cards. Go to the nearest store immediately.',
+    ],
+  },
+  {
+    id: 'grandson-es',
+    households: ['es-US'],
+    lang: 'es',
+    label: 'El "nieto" en la cárcel',
+    caller: 'Desconocido +1 (210) XXX-0193',
+    lines: [
+      'Abuela, ¿eres tú? Soy yo, tu nieto.',
+      'Abuela, tuve un accidente con el carro y la policía me llevó a la cárcel.',
+      'Necesito dinero para la fianza hoy mismo, si no me dejan aquí toda la noche.',
+      'Por favor no le digas a mi mamá, se va a enojar mucho conmigo.',
+      'El abogado dice que puedes pagar con tarjetas de regalo. Ve a la tienda ahora mismo.',
     ],
   },
 ];
